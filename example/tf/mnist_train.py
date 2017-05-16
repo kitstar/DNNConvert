@@ -37,13 +37,13 @@ def main(_):
   mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
   # Create the model
-  x = tf.placeholder(tf.float32, [None, 784])
-  W = tf.Variable(tf.zeros([784, 10]))
-  b = tf.Variable(tf.zeros([10]))
+  x = tf.placeholder(tf.float32, [None, 784], name = "kit_input")
+  W = tf.Variable(tf.zeros([784, 10]), name = "kit_w")
+  b = tf.Variable(tf.zeros([10]), name = "kit_b")
   y = tf.matmul(x, W) + b
 
   # Define loss and optimizer
-  y_ = tf.placeholder(tf.float32, [None, 10])
+  y_ = tf.placeholder(tf.float32, [None, 10], name = "kit_output")
 
   # The raw formulation of cross-entropy,
   #
@@ -58,6 +58,12 @@ def main(_):
       tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y))
   train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
 
+  tf.add_to_collection('x', x)
+  tf.add_to_collection('y', y)
+  tf.add_to_collection('y_', y_)
+  print ("y=", y)
+  print ("y_=", y_)
+ 
   for v in tf.trainable_variables():
       print ("trainable parameter: %s" % (v.name))
  
@@ -70,7 +76,8 @@ def main(_):
           batch_xs, batch_ys = mnist.train.next_batch(100)
           sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
 
-      saver = tf.train.Saver(tf.trainable_variables())
+#      saver = tf.train.Saver(tf.trainable_variables())
+      saver = tf.train.Saver()
       save_path = saver.save(sess, '/tmp/kit_mnist')
   
   print ("Finish Training. Saved as [%s]" % save_path)

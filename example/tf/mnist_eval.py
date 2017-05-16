@@ -36,21 +36,15 @@ def main(_):
   # Import data
   mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True)
 
-  # Create the model
-  x = tf.placeholder(tf.float32, [None, 784])
-  W = tf.Variable(tf.zeros([784, 10]))
-  b = tf.Variable(tf.zeros([10]))
-  y = tf.matmul(x, W) + b
-
-  # Define loss and optimizer
-  y_ = tf.placeholder(tf.float32, [None, 10])
-
-  
   report_uninitialized_op = tf.report_uninitialized_variables(tf.global_variables())
 
   with tf.Session() as sess:
-      saver = tf.train.Saver(tf.trainable_variables())
-      saver.restore(sess, "/tmp/kit_mnist")
+      saver = tf.train.import_meta_graph('/tmp/kit_mnist.meta')
+      saver.restore(sess, '/tmp/kit_mnist')
+      x = tf.get_collection('x')[0]
+      y = tf.get_collection('y')[0]
+      y_ = tf.get_collection('y_')[0]
+
       uninitialized_tensor = sess.run(report_uninitialized_op)
       print ("uninitialized tensor: ", uninitialized_tensor)
 
