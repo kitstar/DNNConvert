@@ -76,8 +76,9 @@ def main(_):
           batch_xs, batch_ys = mnist.train.next_batch(100)
           sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
 
-#      saver = tf.train.Saver(tf.trainable_variables())
-      saver = tf.train.Saver()
+      saver = tf.train.Saver(tf.trainable_variables())
+#      saver = tf.train.Saver()
+      tf.train.export_meta_graph('kit_mnist.txt', as_text = True)
       save_path = saver.save(sess, '/tmp/kit_mnist')
   
   print ("Finish Training. Saved as [%s]" % save_path)
