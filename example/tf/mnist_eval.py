@@ -38,6 +38,8 @@ def main(_):
 
   report_uninitialized_op = tf.report_uninitialized_variables(tf.global_variables())
 
+  import pdb
+  pdb.set_trace()
   with tf.Session() as sess:
       saver = tf.train.import_meta_graph('/tmp/kit_mnist.meta')
       saver.restore(sess, '/tmp/kit_mnist')

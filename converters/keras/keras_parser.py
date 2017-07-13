@@ -73,21 +73,19 @@ class KerasParser(object):
         traverse_nodes = graph.input_layers
         enqueued_nodes = set(traverse_nodes)
         while len(traverse_nodes) > 0:
-            current_node = traverse_nodes.pop()            
-            print (current_node)
-            for next_node in graph.layer_map[current_node].out_edges:
-                if not next_node in enqueued_nodes:
-                    enqueued_nodes.add(next_node)
-                    traverse_nodes.append(next_node)
+            current_node = graph.layer_map[traverse_nodes.pop()]
+            node_type = current_node.layer.__class__.__name__
 
-
-        for node in model.layers:
-            node_type = node.__class__.__name__            
             if hasattr(KerasParser, "rename_" + node_type):
                 func = getattr(self, "rename_" + node_type)
                 func(node)
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
+
+            for next_node in current_node.out_edges:
+                if not next_node in enqueued_nodes:
+                    enqueued_nodes.add(next_node)
+                    traverse_nodes.append(next_node)
 
         print ("finish!")
 

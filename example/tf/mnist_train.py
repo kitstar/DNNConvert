@@ -70,6 +70,7 @@ def main(_):
   init_op = tf.global_variables_initializer()
 
   with tf.Session() as sess:
+      writer = tf.summary.FileWriter('./graphs', sess.graph)
       sess.run(init_op)
       # Train
       for _ in range(1000):
@@ -79,9 +80,10 @@ def main(_):
       saver = tf.train.Saver(tf.trainable_variables())
 #      saver = tf.train.Saver()
       tf.train.export_meta_graph('kit_mnist.txt', as_text = True)
-      save_path = saver.save(sess, '/tmp/kit_mnist')
+      save_path = saver.save(sess, './model/kit_mnist')
   
   print ("Finish Training. Saved as [%s]" % save_path)
+  writer.close()
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
