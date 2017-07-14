@@ -70,15 +70,15 @@ class KerasParser(object):
         graph.build()
 
         # bfs
-        traverse_nodes = graph.input_layers
+        traverse_nodes = graph.get_input_layers()
         enqueued_nodes = set(traverse_nodes)
         while len(traverse_nodes) > 0:
-            current_node = graph.layer_map[traverse_nodes.pop()]
+            current_node = graph.get_node(traverse_nodes.pop())
             node_type = current_node.layer.__class__.__name__
 
             if hasattr(KerasParser, "rename_" + node_type):
-                func = getattr(self, "rename_" + node_type)
-                func(node)
+                func = getattr(KerasParser, "rename_" + node_type)
+                func(current_node.layer)
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
 
@@ -90,8 +90,13 @@ class KerasParser(object):
         print ("finish!")
 
 
-    def rename_Placeholder(self, node_info):
-        print (node_info)
+    @staticmethod
+    def rename_InputLayer(node_info):
+        # only for training
+        print (node_info.name)
+        print (node_info.dtype)
+        print (dir(node_info))
+        print (node_info.output_shape)
 
     def rename_Const(self, node_info):
         print (node_info)
