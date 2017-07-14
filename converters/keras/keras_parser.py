@@ -4,10 +4,25 @@ from __future__ import print_function
 
 import os
 
-from converters.keras.keras2_graph import Keras2Graph
 import keras as _keras
+from converters.keras.keras2_graph import Keras2Graph
+import common.IR.graph_pb2 as graph_pb2
+from common.IR.graph_pb2 import NodeDef, GraphDef, DataType
+
 
 class KerasParser(object):
+   
+    dtype_map = {
+            "float16" : graph_pb2.DT_FLOAT16,
+            "float32" : graph_pb2.DT_FLOAT32,
+            "float64" : graph_pb2.DT_FLOAT64,
+            "int16"   : graph_pb2.DT_INT16,
+            "int32"   : graph_pb2.DT_INT32,
+            "int64"   : graph_pb2.DT_INT64,
+            "uint8"   : graph_pb2.DT_UINT8,
+            "uint16"  : graph_pb2.DT_UINT16
+            }
+    
 
     @staticmethod
     def _load_model(model_network_path, model_weight_path):
@@ -78,7 +93,8 @@ class KerasParser(object):
 
             if hasattr(KerasParser, "rename_" + node_type):
                 func = getattr(KerasParser, "rename_" + node_type)
-                func(current_node.layer)
+                new_node = func(current_node)
+                print (new_node)
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
 
@@ -91,15 +107,46 @@ class KerasParser(object):
 
 
     @staticmethod
-    def rename_InputLayer(node_info):
-        # only for training
-        print (node_info.name)
-        print (node_info.dtype)
-        print (dir(node_info))
-        print (node_info.output_shape)
+    def _copy_and_reop(source_node, new_op = None):
+        node_info = source_node.layer
+        if new_op == None:
+            new_op = node_info.__class__.__name__
+        IR_node = NodeDef(name = node_info.name, op = new_op)
+        for e in source_node.in_edges:
+            IR_node.input.append(e)
 
-    def rename_Const(self, node_info):
-        print (node_info)
+        if hasattr(node_info, "dtype"):
+            IR_node.attr["dtype"].type = KerasParser.dtype_map[node_info.dtype]
+
+        return IR_node
+
+    @staticmethod
+    def _copy_shape(source_node, target_node):
+        if hasattr(source_node, "output_shape"):
+            for dim in source_node.output_shape:
+                new_dim = target_node.attr["shape"].shape.dim.add()
+                if dim == None:
+                    new_dim.size = -1
+                else:
+                    new_dim.size = dim
+        else:
+            target_node.attr["shape"].shape.unknown_shape = true
+
+        return target_node
+
+
+    @staticmethod
+    def rename_InputLayer(source_node):
+        # only for training
+        IR_node = KerasParser._copy_and_reop(source_node, "DataInput")
+        IR_node = KerasParser._copy_shape(source_node.layer, IR_node)
+        return IR_node
+
+    @staticmethod
+    def rename_Conv2D(source_node):
+        # only for training
+        IR_node = KerasParser._copy_and_reop(source_node)
+        return IR_node
       
     def rename_Assign(self, node_info):
         print (node_info)
