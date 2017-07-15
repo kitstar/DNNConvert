@@ -89,7 +89,7 @@ class KerasParser(object):
         enqueued_nodes = set(traverse_nodes)
         while len(traverse_nodes) > 0:
             current_node = graph.get_node(traverse_nodes.pop())
-            node_type = current_node.layer.__class__.__name__
+            node_type = current_node.keras_layer.__class__.__name__
 
             if hasattr(KerasParser, "rename_" + node_type):
                 func = getattr(KerasParser, "rename_" + node_type)
@@ -108,7 +108,7 @@ class KerasParser(object):
 
     @staticmethod
     def _copy_and_reop(source_node, new_op = None):
-        node_info = source_node.layer
+        node_info = source_node.keras_layer
         if new_op == None:
             new_op = node_info.__class__.__name__
         IR_node = NodeDef(name = node_info.name, op = new_op)
@@ -134,18 +134,46 @@ class KerasParser(object):
 
         return target_node
 
+    @staticmethod
+    def _convert_dataformat(source_node, target_node):
+        if source_node.keras_layer.data_format == 'channel_last':
+            target_node.attr["data_format"].s = "NHWC"
+        else:
+            target_node.attr["data_format"].s = "NCHW"
+        return target_node
+
+    @staticmethod
+    def _convert_padding(source_node, target_node):
+        if source_node.keras_layer.padding == 'valid':
+            target_node.attr["padding"].s = "VALID"
+        else:
+            target_node.attr["padding"].s = "SAME"
+        return target_node
+
 
     @staticmethod
     def rename_InputLayer(source_node):
         # only for training
         IR_node = KerasParser._copy_and_reop(source_node, "DataInput")
-        IR_node = KerasParser._copy_shape(source_node.layer, IR_node)
+        IR_node = KerasParser._copy_shape(source_node.keras_layer, IR_node)
         return IR_node
+
 
     @staticmethod
     def rename_Conv2D(source_node):
         # only for training
         IR_node = KerasParser._copy_and_reop(source_node)
+        IR_node = KerasParser._convert_dataformat(source_node, IR_node)
+        IR_node = KerasParser._convert_padding(source_node, IR_node)
+        IR_node.attr["filter"].i = source_node.keras_layer.filters
+        if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
+            sh, sw = source_node.keras_layer.strides
+        else:
+            sh = source_node.keras_layer.strides
+            sw = sh
+
+        IR_node.attr["strides"].list.i.append(sh)
+        IR_node.attr["strides"].list.i.append(sw)
         return IR_node
       
     def rename_Assign(self, node_info):

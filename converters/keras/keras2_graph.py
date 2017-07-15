@@ -11,7 +11,7 @@ class Keras2GraphNode(object):
     def __init__(self, layer):
         self.in_edges = list()
         self.out_edges = list()
-        self.layer = layer   
+        self.keras_layer = layer   
 
 
 
