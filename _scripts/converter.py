@@ -10,7 +10,7 @@ from __future__ import print_function
 
 import logging as _logging
 import sys as _sys
-
+import google.protobuf.text_format as text_format
 # expose files as imports
 #from ..models import utils
 
@@ -85,6 +85,8 @@ def _convert(args):
                                     image_scale = args.scale,
                                     class_labels = args.classInputPath if args.classInputPath else None,
                                     predicted_feature_name = args.predictedFeatureName)
+            this_str = text_format.MessageToString(model, True)
+            print (this_str)
 #            model.save(args.dstModelPath)
 #        except Exception as e:
 #            print('error: %s.' % str(e))

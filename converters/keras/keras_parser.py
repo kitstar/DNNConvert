@@ -85,6 +85,7 @@ class KerasParser(object):
         graph.build()
 
         # bfs
+        IR_graph = GraphDef()
         traverse_nodes = graph.get_input_layers()
         enqueued_nodes = set(traverse_nodes)
         while len(traverse_nodes) > 0:
@@ -93,8 +94,8 @@ class KerasParser(object):
 
             if hasattr(KerasParser, "rename_" + node_type):
                 func = getattr(KerasParser, "rename_" + node_type)
-                new_node = func(current_node)
-                print (new_node)
+                new_node = IR_graph.node.add()
+                new_node = func(current_node, new_node)
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
 
@@ -104,14 +105,16 @@ class KerasParser(object):
                     traverse_nodes.append(next_node)
 
         print ("finish!")
+        return IR_graph
 
 
     @staticmethod
-    def _copy_and_reop(source_node, new_op = None):
+    def _copy_and_reop(source_node, IR_node, new_op = None):
         node_info = source_node.keras_layer
         if new_op == None:
             new_op = node_info.__class__.__name__
-        IR_node = NodeDef(name = node_info.name, op = new_op)
+        IR_node.name = node_info.name
+        IR_node.op = new_op
         for e in source_node.in_edges:
             IR_node.input.append(e)
 
@@ -130,7 +133,7 @@ class KerasParser(object):
                 else:
                     new_dim.size = dim
         else:
-            target_node.attr["shape"].shape.unknown_shape = true
+            target_node.attr["shape"].shape.unknown_rank = True
 
         return target_node
 
@@ -152,19 +155,19 @@ class KerasParser(object):
 
 
     @staticmethod
-    def rename_InputLayer(source_node):
+    def rename_InputLayer(source_node, IR_node):
         # only for training
-        IR_node = KerasParser._copy_and_reop(source_node, "DataInput")
+        KerasParser._copy_and_reop(source_node, IR_node, "DataInput")
         IR_node = KerasParser._copy_shape(source_node.keras_layer, IR_node)
         return IR_node
 
 
     @staticmethod
-    def rename_Conv2D(source_node):
+    def rename_Conv2D(source_node, IR_node):
         # only for training
-        IR_node = KerasParser._copy_and_reop(source_node)
-        IR_node = KerasParser._convert_dataformat(source_node, IR_node)
-        IR_node = KerasParser._convert_padding(source_node, IR_node)
+        KerasParser._copy_and_reop(source_node, IR_node)
+        KerasParser._convert_dataformat(source_node, IR_node)
+        KerasParser._convert_padding(source_node, IR_node)
         IR_node.attr["filter"].i = source_node.keras_layer.filters
         if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
             sh, sw = source_node.keras_layer.strides
@@ -176,8 +179,9 @@ class KerasParser(object):
         IR_node.attr["strides"].list.i.append(sw)
         return IR_node
       
-    def rename_Assign(self, node_info):
-        print (node_info)
+    @staticmethod
+    def rename_MaxPooling2D(source_node, IR_node):
+        print (source_node.keras_layer)
 
     def rename_NoOp(self, node_info):
         print ("Ignore node [%s]." % (node_info.op))
