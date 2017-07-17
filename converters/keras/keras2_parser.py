@@ -25,7 +25,7 @@ class Keras2Parser(object):
 
     activation_map = {
             "relu" : "Relu",
-            'softmax' : "Softmax"
+            'softmax' : "Softmax",
             }
     
 
@@ -110,10 +110,12 @@ class Keras2Parser(object):
             IR_node.attr["dtype"].type = Keras2Parser.dtype_map[node_info.dtype]
 
 
+
     @staticmethod
     def _convert_inedge(source_node, IR_node, layer_name_map):
         for e in source_node.in_edges:
             IR_node.input.append(layer_name_map[e])
+
 
 
     @staticmethod
@@ -138,7 +140,8 @@ class Keras2Parser(object):
             target_node.attr["data_format"].s = "NCHW"
         else:
             print("Warning: [%s] don't have data format info." % (source_node.keras_layer.name))
-        return target_node
+
+
 
     @staticmethod
     def _convert_padding(source_node, target_node):
@@ -146,12 +149,15 @@ class Keras2Parser(object):
             target_node.attr["padding"].s = "VALID"
         else:
             target_node.attr["padding"].s = "SAME"
-        return target_node
+
 
 
     @classmethod
     def _defuse_activation(self, keras_node):
         if keras_node.keras_layer.activation == None:
+            return
+
+        if keras_node.keras_layer.activation.__name__ == "linear":
             return
 
         IR_node = self.IR_graph.node.add()
@@ -300,77 +306,12 @@ class Keras2Parser(object):
 
 
 
-    def rename_NoOp(self, node_info):
-        print ("Ignore node [%s]." % (node_info.op))
+    @classmethod
+    def rename_Activation(self, keras_node):
+        IR_node = self.IR_graph.node.add()
 
-    def rename_RestoreV2(self, node_info):
-        print ("Ignore node [%s]." % (node_info.op))
+        # name, op
+        Keras2Parser._copy_and_reop(keras_node, IR_node, self.activation_map[keras_node.keras_layer.activation.__name__])
 
-    def rename_SaveV2(self, node_info):
-        print ("Ignore node [%s]." % (node_info.op))
-
-    def rename_Identity(self, node_info):
-        print (node_info)
-
-    def rename_Mean(self, node_info):
-        print (node_info)
-
-    def rename_VariableV2(self, node_info):
-        print (node_info)
-
-    def rename_reshape(self, node_info):
-        print (node_info)
-
-    def rename_ConcatV2(self, node_info):
-        print (node_info)
-
-    def rename_Add(self, node_info):
-        print (node_info)
-
-    def rename_Sub(self, node_info):
-        print (node_info)
-
-    def rename_Reshape(self, node_info):
-        print (node_info)
-
-    def rename_Slice(self, node_info):
-        print (node_info)
-
-    def rename_MatMul(self, node_info):
-        print (node_info)
-
-    def rename_SoftmaxCrossEntropyWithLogits(self, node_info):
-        print (node_info)
-
-    def rename_ApplyGradientDescent(self, node_info):
-        print ("Ignore node [%s]." % (node_info.op))
-
-
-'''
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-
-   def rename_VariableV2(self, node_info):
-        print (node_info)
-'''  
+        # input edge
+        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
