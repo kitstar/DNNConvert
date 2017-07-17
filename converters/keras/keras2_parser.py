@@ -153,8 +153,10 @@ class Keras2Parser(object):
     def _convert_padding(source_node, target_node):
         if source_node.keras_layer.padding == 'valid':
             target_node.attr["padding"].s = "VALID"
-        else:
+        elif source_node.keras_layer.padding == 'same':
             target_node.attr["padding"].s = "SAME"
+        else:
+            print ("Error: Invalid embedding [%s]!" % (source_node.keras_layer.padding))
 
 
 
@@ -351,3 +353,23 @@ class Keras2Parser(object):
 
         # input edge
         Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+
+
+    @classmethod
+    def rename_Embedding(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node)
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        # input_dim
+        IR_node.attr["input_dim"].i = source_node.keras_layer.input_dim
+
+        # output_dim
+        IR_node.attr["output_dim"].i = source_node.keras_layer.output_dim
+
+        # mask_zero
+        IR_node.attr["mask_zero"].b = source_node.keras_layer.mask_zero
