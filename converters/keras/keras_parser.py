@@ -141,8 +141,10 @@ class KerasParser(object):
     def _convert_dataformat(source_node, target_node):
         if source_node.keras_layer.data_format == 'channel_last':
             target_node.attr["data_format"].s = "NHWC"
-        else:
+        elif source_node.keras_layer.data_format == 'channel_first':
             target_node.attr["data_format"].s = "NCHW"
+        else:
+            print("Warning: [%s] don't have data format info." % (source_node.keras_layer.name))
         return target_node
 
     @staticmethod
@@ -164,11 +166,18 @@ class KerasParser(object):
 
     @staticmethod
     def rename_Conv2D(source_node, IR_node):
-        # only for training
+
+        print (source_node.keras_layer.activation)
+        # name, op and input
         KerasParser._copy_and_reop(source_node, IR_node)
-        KerasParser._convert_dataformat(source_node, IR_node)
+        
+        # padding        
         KerasParser._convert_padding(source_node, IR_node)
+
+        # filter
         IR_node.attr["filter"].i = source_node.keras_layer.filters
+
+        # strides
         if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
             sh, sw = source_node.keras_layer.strides
         else:
@@ -177,11 +186,76 @@ class KerasParser(object):
 
         IR_node.attr["strides"].list.i.append(sh)
         IR_node.attr["strides"].list.i.append(sw)
+
         return IR_node
       
     @staticmethod
     def rename_MaxPooling2D(source_node, IR_node):
-        print (source_node.keras_layer)
+        # name, op and input
+        KerasParser._copy_and_reop(source_node, IR_node, "MaxPool2D")
+
+        # padding
+        KerasParser._convert_padding(source_node, IR_node)
+
+        # strides
+        if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
+            sh, sw = source_node.keras_layer.strides
+        else:
+            sh = source_node.keras_layer.strides
+            sw = sh
+
+        IR_node.attr["strides"].list.i.append(1)
+        IR_node.attr["strides"].list.i.append(sh)
+        IR_node.attr["strides"].list.i.append(sw)
+        IR_node.attr["strides"].list.i.append(1)
+
+        # pool_size
+        if isinstance(source_node.keras_layer.pool_size, tuple) or isinstance(source_node.keras_layer.pool_size, list):
+            ph, pw = source_node.keras_layer.pool_size
+        else:
+            ph = source_node.keras_layer.pool_size
+            pw = ph
+    
+        IR_node.attr["ksize"].list.i.append(1)
+        IR_node.attr["ksize"].list.i.append(sh)
+        IR_node.attr["ksize"].list.i.append(sw)
+        IR_node.attr["ksize"].list.i.append(1)
+
+
+        return IR_node
+
+    @staticmethod
+    def rename_Dropout(source_node, IR_node):
+        # only for training
+
+        # name, op and input
+        KerasParser._copy_and_reop(source_node, IR_node)
+
+        IR_node.attr["keep_prob"].f = source_node.keras_layer.rate
+        if source_node.keras_layer.seed != None:
+            IR_node.attr["seed"].i = source_node.keras_layer.seed
+        return IR_node
+  
+
+    @staticmethod
+    def rename_Dense(source_node, IR_node):
+        # name, op and input
+        KerasParser._copy_and_reop(source_node, IR_node, "Fully_connected")
+        
+        # units
+        IR_node.attr["units"].i = source_node.keras_layer.units
+
+        # use_bias
+        IR_node.attr["use_bias"].b = source_node.keras_layer.use_bias
+        
+        return IR_node
+
+    @staticmethod
+    def rename_Flatten(source_node, IR_node):
+        # name, op and input
+        KerasParser._copy_and_reop(source_node, IR_node)
+        return IR_node
+
 
     def rename_NoOp(self, node_info):
         print ("Ignore node [%s]." % (node_info.op))

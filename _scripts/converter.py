@@ -86,7 +86,8 @@ def _convert(args):
                                     class_labels = args.classInputPath if args.classInputPath else None,
                                     predicted_feature_name = args.predictedFeatureName)
             this_str = text_format.MessageToString(model, True)
-            print (this_str)
+            with open("kit_model.txt", "w") as of:
+                of.write(this_str)
 #            model.save(args.dstModelPath)
 #        except Exception as e:
 #            print('error: %s.' % str(e))
