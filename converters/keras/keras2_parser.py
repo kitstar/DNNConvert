@@ -26,8 +26,10 @@ class Keras2Parser(object):
     activation_map = {
             "relu" : "Relu",
             'softmax' : "Softmax",
+            'sigmoid' : "Sigmoid",
             }
     
+
 
     @staticmethod
     def _load_model(model_network_path, model_weight_path):
@@ -63,6 +65,7 @@ class Keras2Parser(object):
         return loaded_model
 
 
+
     @classmethod
     def __init__(self, model):
         self.IR_graph = GraphDef()
@@ -77,6 +80,8 @@ class Keras2Parser(object):
         # Build network graph
         self.keras_graph =  Keras2Graph(model)
         self.keras_graph.build()
+
+
 
     @classmethod
     def gen_IR(self):
@@ -97,6 +102,7 @@ class Keras2Parser(object):
                 if not next_node in enqueued_nodes:
                     enqueued_nodes.add(next_node)
                     traverse_nodes.append(next_node)
+
 
 
     @staticmethod
@@ -167,9 +173,38 @@ class Keras2Parser(object):
         self.keras_graph.layer_name_map[keras_node.keras_layer.name] = IR_node.name
 
 
+
+    @classmethod
+    def _convert_convolution(self, keras_node, IR_node, dim):
+         # name, op
+        Keras2Parser._copy_and_reop(keras_node, IR_node)
+
+        # input edge
+        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+        
+        # padding        
+        Keras2Parser._convert_padding(keras_node, IR_node)
+
+        # filter
+        IR_node.attr["filter"].i = keras_node.keras_layer.filters
+
+        # use_bias
+        IR_node.attr["use_bias"].b = keras_node.keras_layer.use_bias
+
+        # strides
+        for e in keras_node.keras_layer.strides:
+            IR_node.attr["strides"].list.i.append(e)
+
+        while len(IR_node.attr["strides"].list.i) < dim:
+            IR_node.attr["strides"].list.i.append(IR_node.attr["strides"].list.i.at(0))
+
+        # activation
+        self._defuse_activation(keras_node)
+
+
+
     @classmethod
     def rename_InputLayer(self, source_node):
-
         # only for training
         IR_node = self.IR_graph.node.add()
         
@@ -183,39 +218,40 @@ class Keras2Parser(object):
         Keras2Parser._copy_shape(source_node.keras_layer, IR_node)
 
 
+
+    @classmethod
+    def rename_Conv1D(self, keras_node):
+        IR_node = self.IR_graph.node.add()        
+        self._convert_convolution(keras_node, IR_node, 1)
+
+
+
     @classmethod
     def rename_Conv2D(self, source_node):
+        IR_node = self.IR_graph.node.add()         
+        self._convert_convolution(keras_node, IR_node, 2)
+
+
+
+    @classmethod
+    def rename_Conv3D(self, source_node):
+        IR_node = self.IR_graph.node.add()         
+        self._convert_convolution(keras_node, IR_node, 3)
+       
+
+
+    @classmethod
+    def rename_GlobalMaxPooling1D(self, source_node):
         IR_node = self.IR_graph.node.add()
-         
+
         # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
+        Keras2Parser._copy_and_reop(source_node, IR_node, "GlobalMaxPool1D")
 
         # input edge
         Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
-        
-        # padding        
-        Keras2Parser._convert_padding(source_node, IR_node)
 
-        # filter
-        IR_node.attr["filter"].i = source_node.keras_layer.filters
 
-        # use_bias
-        IR_node.attr["use_bias"].b = source_node.keras_layer.use_bias
 
-        # strides
-        if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
-            sh, sw = source_node.keras_layer.strides
-        else:
-            sh = source_node.keras_layer.strides
-            sw = sh
-
-        IR_node.attr["strides"].list.i.append(sh)
-        IR_node.attr["strides"].list.i.append(sw)
-
-        # activation
-        self._defuse_activation(source_node)
-
-      
     @classmethod
     def rename_MaxPooling2D(self, source_node):
         IR_node = self.IR_graph.node.add()
