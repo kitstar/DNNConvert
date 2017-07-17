@@ -71,27 +71,18 @@ def _convert(args):
             else:
                 model = args.srcModelPath
 
-            from converters.keras.keras_parser import KerasParser
+            from converters.keras.keras2_parser import Keras2Parser
 
-            model = KerasParser._convert(model,
-                                    args.inputNames,
-                                    args.outputNames,
-                                    image_input_names = set(args.imageInputNames) if args.imageInputNames else None,
-                                    is_bgr = args.isBGR,
-                                    red_bias = args.redBias,
-                                    blue_bias = args.blueBias,
-                                    green_bias = args.greenBias,
-                                    gray_bias = args.grayBias,
-                                    image_scale = args.scale,
-                                    class_labels = args.classInputPath if args.classInputPath else None,
-                                    predicted_feature_name = args.predictedFeatureName)
-            this_str = text_format.MessageToString(model, True)
+            parser = Keras2Parser(model)
+
+            parser.gen_IR()
+
+            print (parser.IR_graph)
+
+            this_str = text_format.MessageToString(parser.IR_graph, True)
             with open("kit_model.txt", "w") as of:
                 of.write(this_str)
-#            model.save(args.dstModelPath)
-#        except Exception as e:
-#            print('error: %s.' % str(e))
-#            return 1 # error
+
             return 0
     else:
         print('error: Invalid srcModelFormat specified.')
