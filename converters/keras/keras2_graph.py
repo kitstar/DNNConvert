@@ -11,7 +11,8 @@ class Keras2GraphNode(object):
     def __init__(self, layer):
         self.in_edges = list()
         self.out_edges = list()
-        self.keras_layer = layer   
+        self.keras_layer = layer
+        self.left_in_edges = 0
 
 
 
@@ -49,8 +50,10 @@ class Keras2Graph(object):
     @classmethod
     def _make_input_layers(self):
         for name, layer in self.layer_map.items():
+            layer.left_in_edges = len(layer.in_edges)
             if len(layer.in_edges) == 0:
                 self.input_layers.append(name)
+
 
 
     @classmethod

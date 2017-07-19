@@ -24,9 +24,10 @@ class Keras2Parser(object):
             }
 
     activation_map = {
-            "relu" : "Relu",
+            "relu"    : "Relu",
             'softmax' : "Softmax",
             'sigmoid' : "Sigmoid",
+            "tanh"    : "Tanh"
             }
     
 
@@ -87,20 +88,21 @@ class Keras2Parser(object):
     def gen_IR(self):
         # bfs
         traverse_nodes = self.keras_graph.get_input_layers()
-        enqueued_nodes = set(traverse_nodes)
         while len(traverse_nodes) > 0:
             current_node = self.keras_graph.get_node(traverse_nodes.pop())
             node_type = current_node.keras_layer.__class__.__name__
 
             if hasattr(self, "rename_" + node_type):
                 func = getattr(self, "rename_" + node_type)
-                new_node = func(current_node)
+                func(current_node)
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
+                self.rename_UNKNOWN(current_node)
 
             for next_node in current_node.out_edges:
-                if not next_node in enqueued_nodes:
-                    enqueued_nodes.add(next_node)
+                next_node_info = self.keras_graph.get_node(next_node)
+                next_node_info.left_in_edges -= 1
+                if next_node_info.left_in_edges == 0:
                     traverse_nodes.append(next_node)
 
 
@@ -136,7 +138,6 @@ class Keras2Parser(object):
         else:
             target_node.attr["shape"].shape.unknown_rank = True
 
-        return target_node
 
     @staticmethod
     def _convert_dataformat(source_node, target_node):
@@ -204,6 +205,18 @@ class Keras2Parser(object):
         self._defuse_activation(keras_node)
 
 
+    @classmethod
+    def rename_UNKNOWN(self, source_node):
+        # only for training
+        IR_node = self.IR_graph.node.add()
+        
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node)
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+
 
     @classmethod
     def rename_InputLayer(self, source_node):
@@ -229,7 +242,7 @@ class Keras2Parser(object):
 
 
     @classmethod
-    def rename_Conv2D(self, source_node):
+    def rename_Conv2D(self, keras_node):
         IR_node = self.IR_graph.node.add()         
         self._convert_convolution(keras_node, IR_node, 2)
 
@@ -355,6 +368,7 @@ class Keras2Parser(object):
         Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
 
 
+
     @classmethod
     def rename_Embedding(self, source_node):
         IR_node = self.IR_graph.node.add()
@@ -373,3 +387,99 @@ class Keras2Parser(object):
 
         # mask_zero
         IR_node.attr["mask_zero"].b = source_node.keras_layer.mask_zero
+
+    @classmethod
+    def rename_LSTM(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node)
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        # units
+        IR_node.attr["units"].i = source_node.keras_layer.units
+
+        # activation
+        self._defuse_activation(source_node)
+
+
+
+    @classmethod
+    def rename_GRU(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node)
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        # units
+        IR_node.attr["units"].i = source_node.keras_layer.units
+
+        # activation
+        self._defuse_activation(source_node)
+
+
+
+    @classmethod
+    def rename_Add(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node)
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+
+
+    @classmethod
+    def rename_Concatenate(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node, 'Concat')
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+
+    @classmethod
+    def rename_Reshape(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node, 'Concat')
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        # for target shape
+        for e in source_node.keras_layer.target_shape:
+            IR_node.attr["Tshape"].list.i.append(e)
+
+
+    @classmethod
+    def rename_Lambda(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node, "Keras Lambda")
+        
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        IR_node.attr['function'].s = source_node.keras_layer.function.__name__
+        for dim in source_node.keras_layer.output_shape:
+            new_dim = IR_node.attr["output_shape"].shape.dim.add()
+            if dim == None:
+                new_dim.size = -1
+            else:
+                new_dim.size = dim
+
+        # arguments not implementent
+        #print (type(source_node.keras_layer.arguments))
+
