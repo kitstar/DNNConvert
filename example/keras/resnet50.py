@@ -203,6 +203,7 @@ def ResNet50(include_top=True, weights='imagenet',
         bn_axis = 3
     else:
         bn_axis = 1
+    print (input_shape)
 
     x = ZeroPadding2D((3, 3))(img_input)
     x = Conv2D(64, (7, 7), strides=(2, 2), name='conv1')(x)

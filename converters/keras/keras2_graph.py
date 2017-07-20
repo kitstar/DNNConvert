@@ -16,6 +16,18 @@ class Keras2GraphNode(object):
 
 
 
+    @property
+    def name(self):
+        return self.keras_layer.name
+
+
+
+    @property
+    def type(self):
+        return self.keras_layer.__class__.__name__
+
+
+
 class Keras2Graph(object):
   
     @classmethod

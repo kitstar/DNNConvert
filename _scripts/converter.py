@@ -69,7 +69,7 @@ def _convert(args):
                 model = (args.kerasJsonPath, args.srcModelPath)
             else:
                 model = args.srcModelPath
-
+            
             from converters.keras.keras2_parser import Keras2Parser
             parser = Keras2Parser(model)
             parser.gen_IR()
@@ -82,6 +82,11 @@ def _convert(args):
             proto_str = parser.IR_graph.SerializeToString()
             with open('kit_model.prototxt', 'wb') as of:
                 of.write(proto_str)
+
+            
+            from converters.keras.keras2_emitter import Keras2Emitter
+            emitter = Keras2Emitter("kit_model.prototxt")
+            emitter.gen_code("kit_new_model.py")
 
             return 0
     else:

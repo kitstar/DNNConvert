@@ -5,17 +5,17 @@ from __future__ import print_function
 import os
 
 import keras as _keras
-from converters.keras.keras2_graph import Keras2Graph
+from common.IR.IR_graph import IRGraph
 import common.IR.graph_pb2 as graph_pb2
 from common.IR.graph_pb2 import NodeDef, GraphDef, DataType
 
 
-class Keras2Parser(object):
+class Keras2Emitter(object):
    
     dtype_map = {
-            "float16" : graph_pb2.DT_FLOAT16,
-            "float32" : graph_pb2.DT_FLOAT32,
-            "float64" : graph_pb2.DT_FLOAT64,
+            graph_pb2.DT_FLOAT16 : "float16",
+            graph_pb2.DT_FLOAT32 : "float32",
+            graph_pb2.DT_FLOAT64 : "float64",
             "int16"   : graph_pb2.DT_INT16,
             "int32"   : graph_pb2.DT_INT32,
             "int64"   : graph_pb2.DT_INT64,
@@ -68,40 +68,30 @@ class Keras2Parser(object):
 
 
     @classmethod
-    def __init__(self, model):
-        self.IR_graph = GraphDef()
-        # load model files into Keras graph
-        if isinstance(model, basestring):
-            model = _keras.models.load_model(model)
-        elif isinstance(model, tuple):
-            model = Keras2Parser._load_model(model[0], model[1])
-
-        _keras.utils.plot_model(model, "model.png", show_shapes = True)
-
-        # Build network graph
-        self.data_format = _keras.backend.image_data_format()
-        self.keras_graph =  Keras2Graph(model)
-        self.keras_graph.build()
+    def __init__(self, filename):
+        self.IR_graph = IRGraph(filename)
+        self.IR_graph.build()
 
 
 
     @classmethod
-    def gen_IR(self):
+    def gen_code(self, output_filename):
         # bfs
-        traverse_nodes = self.keras_graph.get_input_layers()
+        traverse_nodes = self.IR_graph.get_input_layers()
         while len(traverse_nodes) > 0:
-            current_node = self.keras_graph.get_node(traverse_nodes.pop())
+            current_node = self.IR_graph.get_node(traverse_nodes.pop())
             node_type = current_node.type
 
-            if hasattr(self, "rename_" + node_type):
-                func = getattr(self, "rename_" + node_type)
-                func(current_node)
+            if hasattr(self, "emit_" + node_type):
+                func = getattr(self, "emit_" + node_type)
+                line = func(current_node)
+                print (line)
             else:
-                print("KerasParser has not supported operator [%s]." % (node_type))
-                self.rename_UNKNOWN(current_node)
+                print("KerasEmitter has not supported operator [%s]." % (node_type))
+                self.emit_UNKNOWN(current_node)
 
             for next_node in current_node.out_edges:
-                next_node_info = self.keras_graph.get_node(next_node)
+                next_node_info = self.IR_graph.get_node(next_node)
                 next_node_info.left_in_edges -= 1
                 if next_node_info.left_in_edges == 0:
                     traverse_nodes.append(next_node)
@@ -112,8 +102,8 @@ class Keras2Parser(object):
     def _copy_and_reop(source_node, IR_node, new_op = None):
         node_info = source_node.keras_layer
         if new_op == None:
-            new_op = source_node.type
-        IR_node.name = source_node.name
+            new_op = node_info.__class__.__name__
+        IR_node.name = node_info.name
         IR_node.op = new_op
         if hasattr(node_info, "dtype"):
             IR_node.attr["dtype"].type = Keras2Parser.dtype_map[node_info.dtype]
@@ -126,25 +116,11 @@ class Keras2Parser(object):
             IR_node.input.append(layer_name_map[e])
 
 
-
-    @staticmethod
-    def _copy_shape(source_node, target_node):
-        if hasattr(source_node, "output_shape"):
-            for dim in source_node.output_shape:
-                new_dim = target_node.attr["shape"].shape.dim.add()
-                if dim == None:
-                    new_dim.size = -1
-                else:
-                    new_dim.size = dim
-        else:
-            target_node.attr["shape"].shape.unknown_rank = True
-
-
     @staticmethod
     def _convert_dataformat(source_node, target_node):
-        if source_node.keras_layer.data_format == 'channels_last':
+        if source_node.keras_layer.data_format == 'channel_last':
             target_node.attr["data_format"].s = "NHWC"
-        elif source_node.keras_layer.data_format == 'channels_first':
+        elif source_node.keras_layer.data_format == 'channel_first':
             target_node.attr["data_format"].s = "NCHW"
         else:
             print("Warning: [%s] don't have data format info." % (source_node.keras_layer.name))
@@ -178,9 +154,20 @@ class Keras2Parser(object):
 
 
 
-    @classmethod
-    def _convert_convolution(self, keras_node, IR_node, dim):
-         # name, op
+    @staticmethod
+    def _emit_convolution(IR_node):
+        dim = len(IR_node.IR_layer.attr["strides"].list.i)
+        print (IR_node.IR_layer)
+        print (IR_node.in_edges)
+
+        ret = "{} = Conv{}D(filters = {}, kernel_size = ())({})".format(
+                IR_node.name, 
+                dim,
+                IR_node.IR_layer.attr["filter"].i,
+                IR_node.in_edges[0])
+
+        return ret
+        # name, op
         Keras2Parser._copy_and_reop(keras_node, IR_node)
 
         # input edge
@@ -190,14 +177,7 @@ class Keras2Parser(object):
         Keras2Parser._convert_padding(keras_node, IR_node)
 
         # filter
-        for e in keras_node.keras_layer.kernel_size:
-            IR_node.attr["filter"].list.i.append(e)
-
-        if self.data_format == "channels_last":
-            IR_node.attr["filter"].list.i.append(keras_node.keras_layer.input_shape[-1])
-        else:
-            IR_node.attr["filter"].list.i.append(keras_node.keras_layer.input_shape[1])
-        IR_node.attr["filter"].list.i.append(keras_node.keras_layer.filters)
+        IR_node.attr["filter"].i = keras_node.keras_layer.filters
 
         # use_bias
         IR_node.attr["use_bias"].b = keras_node.keras_layer.use_bias
@@ -214,45 +194,28 @@ class Keras2Parser(object):
 
 
     @classmethod
-    def rename_UNKNOWN(self, source_node):
-        # only for training
-        IR_node = self.IR_graph.node.add()
-        
-        # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
-        
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+    def emit_UNKNOWN(self, IR_node):
+        print(IR_node.IR_layer.name)
 
 
 
     @classmethod
-    def rename_InputLayer(self, source_node):
-        # only for training
-        IR_node = self.IR_graph.node.add()
-        
-        # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node, "DataInput")
-        
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
-
-        # shape
-        Keras2Parser._copy_shape(source_node.keras_layer, IR_node)
+    def emit_DataInput(self, IR_node):
+        shape_str = IRGraph.shapeToStr(IR_node.IR_layer.attr["shape"].shape)
+        code = "{} = Input(shape = ({}), dtype = \"{}\")".format(IR_node.IR_layer.name, shape_str, self.dtype_map[IR_node.IR_layer.attr["dtype"].type])
+        return code
 
 
 
     @classmethod
     def rename_Conv1D(self, keras_node):
-        IR_node = self.IR_graph.node.add()        
-        self._convert_convolution(keras_node, IR_node, 1)
+        return Keras2Emitter._emit_convolution(IR_node)
 
 
 
     @classmethod
-    def rename_Conv2D(self, keras_node):
-        IR_node = self.IR_graph.node.add()         
-        self._convert_convolution(keras_node, IR_node, 2)
+    def emit_Conv2D(self, IR_node):
+        return Keras2Emitter._emit_convolution(IR_node)
 
 
 
