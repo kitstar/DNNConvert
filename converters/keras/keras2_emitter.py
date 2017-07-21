@@ -69,6 +69,18 @@ class Keras2Emitter(object):
         print (last_line)
 
 
+
+    @staticmethod
+    def _emit_merge(IR_node, func):
+        inputs = listToStr(IR_node.in_edges)
+        code = "{:<15} = layers.{}(name = '{}', inputs = [{}])".format(
+                IR_node.name,
+                func,
+                IR_node.name, 
+                inputs)
+        return code
+
+
     
     @staticmethod
     def _emit_convolution(IR_node):
@@ -172,6 +184,15 @@ class Keras2Emitter(object):
     @classmethod
     def emit_GlobalMaxPool1D(self, IR_node):
         code = "{:<15} = GlobalMaxPooling1D()({})".format(
+                IR_node.name, 
+                IR_node.in_edges[0])
+        return code
+
+
+
+    @classmethod
+    def emit_GlobalAvgPool2D(self, IR_node):
+        code = "{:<15} = GlobalAveragePooling2D()({})".format(
                 IR_node.name, 
                 IR_node.in_edges[0])
         return code
@@ -312,30 +333,24 @@ class Keras2Emitter(object):
 
     @classmethod
     def emit_Add(self, IR_node):
-        inputs = listToStr(IR_node.in_edges)
-        code = "{:<15} = Add()({})".format(
-                IR_node.name, 
-                inputs)
+        code = Keras2Emitter._emit_merge(IR_node, "add")
         return code
 
 
 
     @classmethod
     def emit_Concat(self, IR_node):
-        inputs = listToStr(IR_node.in_edges)
-        code = "{:<15} = Concatenate(name = \"{}\")({})".format(
-                IR_node.name, 
-                IR_node.name, 
-                inputs)
+        code = Keras2Emitter._emit_merge(IR_node, "concatenate")
         return code
 
 
     @classmethod
     def emit_BatchNorm(self, IR_node):
-        code = "{:<15} = BatchNormalization(name = \"{}\", axis = {})({})".format(
+        code = "{:<15} = BatchNormalization(name = '{}', axis = {}, scale = {})({})".format(
                 IR_node.name,
                 IR_node.name,
                 IR_node.IR_layer.attr['axis'].i,
+                IR_node.IR_layer.attr['scale'].b,
                 IR_node.in_edges[0])
         return code
 

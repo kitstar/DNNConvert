@@ -294,6 +294,18 @@ class Keras2Parser(object):
 
 
     @classmethod
+    def rename_GlobalAveragePooling2D(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node, "GlobalAvgPool2D")
+
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+
+
+    @classmethod
     def rename_MaxPooling2D(self, source_node):
         IR_node = self.IR_graph.node.add()
 
@@ -326,8 +338,8 @@ class Keras2Parser(object):
             pw = ph
     
         IR_node.attr["ksize"].list.i.append(1)
-        IR_node.attr["ksize"].list.i.append(sh)
-        IR_node.attr["ksize"].list.i.append(sw)
+        IR_node.attr["ksize"].list.i.append(ph)
+        IR_node.attr["ksize"].list.i.append(pw)
         IR_node.attr["ksize"].list.i.append(1)
 
 
@@ -533,6 +545,10 @@ class Keras2Parser(object):
         # axis
         IR_node.attr['axis'].i = keras_node.keras_layer.axis
 
+        # scale
+        IR_node.attr['scale'].b = keras_node.keras_layer.scale
+
+
 
     @classmethod
     def rename_ZeroPadding2D(self, keras_node):
@@ -574,6 +590,6 @@ class Keras2Parser(object):
             pw = ph
     
         IR_node.attr["ksize"].list.i.append(1)
-        IR_node.attr["ksize"].list.i.append(sh)
-        IR_node.attr["ksize"].list.i.append(sw)
+        IR_node.attr["ksize"].list.i.append(ph)
+        IR_node.attr["ksize"].list.i.append(pw)
         IR_node.attr["ksize"].list.i.append(1)
