@@ -12,7 +12,8 @@ from __future__ import print_function
 import numpy as np
 import warnings
 
-from keras.layers import Input
+import keras
+from keras.layers import Input, Add
 from keras import layers
 from keras.layers import Dense
 from keras.layers import Activation
@@ -184,72 +185,188 @@ def ResNet50(include_top=True, weights='imagenet',
     if weights == 'imagenet' and include_top and classes != 1000:
         raise ValueError('If using `weights` as imagenet with `include_top`'
                          ' as true, `classes` should be 1000')
+        
+    input_1         = Input(shape = (224, 224, 3,), dtype = "float32")
+    zero_padding2d_1 = ZeroPadding2D(name = "zero_padding2d_1", padding = ((3, 3),(3, 3),))(input_1)
+    conv1           = Conv2D(filters = 64, kernel_size = (7, 7), strides = (2, 2), padding = 'valid', use_bias = True)(zero_padding2d_1)
+    bn_conv1        = BatchNormalization(name = "bn_conv1", axis = 3)(conv1)
+    activation_1    = Activation('relu')(bn_conv1)
+    max_pooling2d_1 = MaxPooling2D(name = 'max_pooling2d_1', pool_size = (3, 3), strides = (2, 2), padding = 'valid')(activation_1)
+    res2a_branch2a  = Conv2D(filters = 64, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(max_pooling2d_1)
+    bn2a_branch2a   = BatchNormalization(name = "bn2a_branch2a", axis = 3)(res2a_branch2a)
+    activation_2    = Activation('relu')(bn2a_branch2a)
+    res2a_branch2b  = Conv2D(filters = 64, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_2)
+    bn2a_branch2b   = BatchNormalization(name = "bn2a_branch2b", axis = 3)(res2a_branch2b)
+    activation_3    = Activation('relu')(bn2a_branch2b)
+    res2a_branch2c  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_3)
+    bn2a_branch2c   = BatchNormalization(name = "bn2a_branch2c", axis = 3)(res2a_branch2c)
+    res2a_branch1   = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(max_pooling2d_1)
+    bn2a_branch1    = BatchNormalization(name = "bn2a_branch1", axis = 3)(res2a_branch1)
+    add_1           = layers.add([bn2a_branch2c, bn2a_branch1])
+    activation_4    = Activation('relu')(add_1)
+    res2b_branch2a  = Conv2D(filters = 64, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_4)
+    bn2b_branch2a   = BatchNormalization(name = "bn2b_branch2a", axis = 3)(res2b_branch2a)
+    activation_5    = Activation('relu')(bn2b_branch2a)
+    res2b_branch2b  = Conv2D(filters = 64, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_5)
+    bn2b_branch2b   = BatchNormalization(name = "bn2b_branch2b", axis = 3)(res2b_branch2b)
+    activation_6    = Activation('relu')(bn2b_branch2b)
+    res2b_branch2c  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_6)
+    bn2b_branch2c   = BatchNormalization(name = "bn2b_branch2c", axis = 3)(res2b_branch2c)
+    add_2           = layers.add([bn2b_branch2c, activation_4])
+    activation_7    = Activation('relu')(add_2)
+    res2c_branch2a  = Conv2D(filters = 64, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_7)
+    bn2c_branch2a   = BatchNormalization(name = "bn2c_branch2a", axis = 3)(res2c_branch2a)
+    activation_8    = Activation('relu')(bn2c_branch2a)
+    res2c_branch2b  = Conv2D(filters = 64, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_8)
+    bn2c_branch2b   = BatchNormalization(name = "bn2c_branch2b", axis = 3)(res2c_branch2b)
+    activation_9    = Activation('relu')(bn2c_branch2b)
+    res2c_branch2c  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_9)
+    bn2c_branch2c   = BatchNormalization(name = "bn2c_branch2c", axis = 3)(res2c_branch2c)
+    add_3           = layers.add([bn2c_branch2c, activation_7])
+    activation_10   = Activation('relu')(add_3)
+    res3a_branch2a  = Conv2D(filters = 128, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_10)
+    bn3a_branch2a   = BatchNormalization(name = "bn3a_branch2a", axis = 3)(res3a_branch2a)
+    activation_11   = Activation('relu')(bn3a_branch2a)
+    res3a_branch2b  = Conv2D(filters = 128, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_11)
+    bn3a_branch2b   = BatchNormalization(name = "bn3a_branch2b", axis = 3)(res3a_branch2b)
+    activation_12   = Activation('relu')(bn3a_branch2b)
+    res3a_branch2c  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_12)
+    bn3a_branch2c   = BatchNormalization(name = "bn3a_branch2c", axis = 3)(res3a_branch2c)
+    res3a_branch1   = Conv2D(filters = 512, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_10)
+    bn3a_branch1    = BatchNormalization(name = "bn3a_branch1", axis = 3)(res3a_branch1)
+    add_4           = layers.add([bn3a_branch2c, bn3a_branch1])
+    activation_13   = Activation('relu')(add_4)
+    res3b_branch2a  = Conv2D(filters = 128, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_13)
+    bn3b_branch2a   = BatchNormalization(name = "bn3b_branch2a", axis = 3)(res3b_branch2a)
+    activation_14   = Activation('relu')(bn3b_branch2a)
+    res3b_branch2b  = Conv2D(filters = 128, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_14)
+    bn3b_branch2b   = BatchNormalization(name = "bn3b_branch2b", axis = 3)(res3b_branch2b)
+    activation_15   = Activation('relu')(bn3b_branch2b)
+    res3b_branch2c  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_15)
+    bn3b_branch2c   = BatchNormalization(name = "bn3b_branch2c", axis = 3)(res3b_branch2c)
+    add_5           = layers.add([bn3b_branch2c, activation_13])
+    activation_16   = Activation('relu')(add_5)
+    res3c_branch2a  = Conv2D(filters = 128, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_16)
+    bn3c_branch2a   = BatchNormalization(name = "bn3c_branch2a", axis = 3)(res3c_branch2a)
+    activation_17   = Activation('relu')(bn3c_branch2a)
+    res3c_branch2b  = Conv2D(filters = 128, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_17)
+    bn3c_branch2b   = BatchNormalization(name = "bn3c_branch2b", axis = 3)(res3c_branch2b)
+    activation_18   = Activation('relu')(bn3c_branch2b)
+    res3c_branch2c  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_18)
+    bn3c_branch2c   = BatchNormalization(name = "bn3c_branch2c", axis = 3)(res3c_branch2c)
+    add_6           = layers.add([bn3c_branch2c, activation_16])
+    activation_19   = Activation('relu')(add_6)
+    res3d_branch2a  = Conv2D(filters = 128, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_19)
+    bn3d_branch2a   = BatchNormalization(name = "bn3d_branch2a", axis = 3)(res3d_branch2a)
+    activation_20   = Activation('relu')(bn3d_branch2a)
+    res3d_branch2b  = Conv2D(filters = 128, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_20)
+    bn3d_branch2b   = BatchNormalization(name = "bn3d_branch2b", axis = 3)(res3d_branch2b)
+    activation_21   = Activation('relu')(bn3d_branch2b)
+    res3d_branch2c  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_21)
+    bn3d_branch2c   = BatchNormalization(name = "bn3d_branch2c", axis = 3)(res3d_branch2c)
+    add_7           = layers.add([bn3d_branch2c, activation_19])
+    activation_22   = Activation('relu')(add_7)
+    res4a_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_22)
+    bn4a_branch2a   = BatchNormalization(name = "bn4a_branch2a", axis = 3)(res4a_branch2a)
+    activation_23   = Activation('relu')(bn4a_branch2a)
+    res4a_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_23)
+    bn4a_branch2b   = BatchNormalization(name = "bn4a_branch2b", axis = 3)(res4a_branch2b)
+    activation_24   = Activation('relu')(bn4a_branch2b)
+    res4a_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_24)
+    bn4a_branch2c   = BatchNormalization(name = "bn4a_branch2c", axis = 3)(res4a_branch2c)
+    res4a_branch1   = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_22)
+    bn4a_branch1    = BatchNormalization(name = "bn4a_branch1", axis = 3)(res4a_branch1)
+    add_8           = layers.add([bn4a_branch2c, bn4a_branch1])
+    activation_25   = Activation('relu')(add_8)
+    res4b_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_25)
+    bn4b_branch2a   = BatchNormalization(name = "bn4b_branch2a", axis = 3)(res4b_branch2a)
+    activation_26   = Activation('relu')(bn4b_branch2a)
+    res4b_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_26)
+    bn4b_branch2b   = BatchNormalization(name = "bn4b_branch2b", axis = 3)(res4b_branch2b)
+    activation_27   = Activation('relu')(bn4b_branch2b)
+    res4b_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_27)
+    bn4b_branch2c   = BatchNormalization(name = "bn4b_branch2c", axis = 3)(res4b_branch2c)
+    add_9           = layers.add([bn4b_branch2c, activation_25])
+    activation_28   = Activation('relu')(add_9)
+    res4c_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_28)
+    bn4c_branch2a   = BatchNormalization(name = "bn4c_branch2a", axis = 3)(res4c_branch2a)
+    activation_29   = Activation('relu')(bn4c_branch2a)
+    res4c_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_29)
+    bn4c_branch2b   = BatchNormalization(name = "bn4c_branch2b", axis = 3)(res4c_branch2b)
+    activation_30   = Activation('relu')(bn4c_branch2b)
+    res4c_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_30)
+    bn4c_branch2c   = BatchNormalization(name = "bn4c_branch2c", axis = 3)(res4c_branch2c)
+    add_10          = layers.add([bn4c_branch2c, activation_28])
+    activation_31   = Activation('relu')(add_10)
+    res4d_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_31)
+    bn4d_branch2a   = BatchNormalization(name = "bn4d_branch2a", axis = 3)(res4d_branch2a)
+    activation_32   = Activation('relu')(bn4d_branch2a)
+    res4d_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_32)
+    bn4d_branch2b   = BatchNormalization(name = "bn4d_branch2b", axis = 3)(res4d_branch2b)
+    activation_33   = Activation('relu')(bn4d_branch2b)
+    res4d_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_33)
+    bn4d_branch2c   = BatchNormalization(name = "bn4d_branch2c", axis = 3)(res4d_branch2c)
+    add_11          = layers.add([bn4d_branch2c, activation_31])
+    activation_34   = Activation('relu')(add_11)
+    res4e_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_34)
+    bn4e_branch2a   = BatchNormalization(name = "bn4e_branch2a", axis = 3)(res4e_branch2a)
+    activation_35   = Activation('relu')(bn4e_branch2a)
+    res4e_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_35)
+    bn4e_branch2b   = BatchNormalization(name = "bn4e_branch2b", axis = 3)(res4e_branch2b)
+    activation_36   = Activation('relu')(bn4e_branch2b)
+    res4e_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_36)
+    bn4e_branch2c   = BatchNormalization(name = "bn4e_branch2c", axis = 3)(res4e_branch2c)
+    add_12          = layers.add([bn4e_branch2c, activation_34])
+    activation_37   = Activation('relu')(add_12)
+    res4f_branch2a  = Conv2D(filters = 256, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_37)
+    bn4f_branch2a   = BatchNormalization(name = "bn4f_branch2a", axis = 3)(res4f_branch2a)
+    activation_38   = Activation('relu')(bn4f_branch2a)
+    res4f_branch2b  = Conv2D(filters = 256, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_38)
+    bn4f_branch2b   = BatchNormalization(name = "bn4f_branch2b", axis = 3)(res4f_branch2b)
+    activation_39   = Activation('relu')(bn4f_branch2b)
+    res4f_branch2c  = Conv2D(filters = 1024, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_39)
+    bn4f_branch2c   = BatchNormalization(name = "bn4f_branch2c", axis = 3)(res4f_branch2c)
+    add_13          = layers.add([bn4f_branch2c, activation_37])
+    activation_40   = Activation('relu')(add_13)
+    res5a_branch2a  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_40)
+    bn5a_branch2a   = BatchNormalization(name = "bn5a_branch2a", axis = 3)(res5a_branch2a)
+    activation_41   = Activation('relu')(bn5a_branch2a)
+    res5a_branch2b  = Conv2D(filters = 512, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_41)
+    bn5a_branch2b   = BatchNormalization(name = "bn5a_branch2b", axis = 3)(res5a_branch2b)
+    activation_42   = Activation('relu')(bn5a_branch2b)
+    res5a_branch2c  = Conv2D(filters = 2048, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_42)
+    bn5a_branch2c   = BatchNormalization(name = "bn5a_branch2c", axis = 3)(res5a_branch2c)
+    res5a_branch1   = Conv2D(filters = 2048, kernel_size = (1, 1), strides = (2, 2), padding = 'valid', use_bias = True)(activation_40)
+    bn5a_branch1    = BatchNormalization(name = "bn5a_branch1", axis = 3)(res5a_branch1)
+    add_14          = layers.add([bn5a_branch2c, bn5a_branch1])
+    activation_43   = Activation('relu')(add_14)
+    res5b_branch2a  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_43)
+    bn5b_branch2a   = BatchNormalization(name = "bn5b_branch2a", axis = 3)(res5b_branch2a)
+    activation_44   = Activation('relu')(bn5b_branch2a)
+    res5b_branch2b  = Conv2D(filters = 512, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_44)
+    bn5b_branch2b   = BatchNormalization(name = "bn5b_branch2b", axis = 3)(res5b_branch2b)
+    activation_45   = Activation('relu')(bn5b_branch2b)
+    res5b_branch2c  = Conv2D(filters = 2048, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_45)
+    bn5b_branch2c   = BatchNormalization(name = "bn5b_branch2c", axis = 3)(res5b_branch2c)
+    add_15          = layers.add([bn5b_branch2c, activation_43])
+    activation_46   = Activation('relu')(add_15)
+    res5c_branch2a  = Conv2D(filters = 512, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_46)
+    bn5c_branch2a   = BatchNormalization(name = "bn5c_branch2a", axis = 3)(res5c_branch2a)
+    activation_47   = Activation('relu')(bn5c_branch2a)
+    res5c_branch2b  = Conv2D(filters = 512, kernel_size = (3, 3), strides = (1, 1), padding = 'same', use_bias = True)(activation_47)
+    bn5c_branch2b   = BatchNormalization(name = "bn5c_branch2b", axis = 3)(res5c_branch2b)
+    activation_48   = Activation('relu')(bn5c_branch2b)
+    res5c_branch2c  = Conv2D(filters = 2048, kernel_size = (1, 1), strides = (1, 1), padding = 'valid', use_bias = True)(activation_48)
+    bn5c_branch2c   = BatchNormalization(name = "bn5c_branch2c", axis = 3)(res5c_branch2c)
+    add_16          = layers.add([bn5c_branch2c, activation_46])
+    activation_49   = Activation('relu')(add_16)
+    avg_pool        = AveragePooling2D(name = 'avg_pool', pool_size = (7, 7), strides = (7, 7), padding = 'valid')(activation_49)
+    flatten_1       = Flatten()(avg_pool)
+    fc1000          = Dense(units = 1000, use_bias = True)(flatten_1)
+    fc1000_activation = Activation('softmax')(fc1000)
+    model           = Model(inputs = [input_1], outputs = [fc1000_activation])
+    
 
-    # Determine proper input shape
-    input_shape = _obtain_input_shape(input_shape,
-                                      default_size=224,
-                                      min_size=197,
-                                      data_format=K.image_data_format(),
-                                      include_top=include_top)
-
-    if input_tensor is None:
-        img_input = Input(shape=input_shape)
-    else:
-        if not K.is_keras_tensor(input_tensor):
-            img_input = Input(tensor=input_tensor, shape=input_shape)
-        else:
-            img_input = input_tensor
-    if K.image_data_format() == 'channels_last':
-        bn_axis = 3
-    else:
-        bn_axis = 1
-    print (input_shape)
-
-    x = ZeroPadding2D((3, 3))(img_input)
-    x = Conv2D(64, (7, 7), strides=(2, 2), name='conv1')(x)
-    x = BatchNormalization(axis=bn_axis, name='bn_conv1')(x)
-    x = Activation('relu')(x)
-    x = MaxPooling2D((3, 3), strides=(2, 2))(x)
-
-    x = conv_block(x, 3, [64, 64, 256], stage=2, block='a', strides=(1, 1))
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='b')
-    x = identity_block(x, 3, [64, 64, 256], stage=2, block='c')
-
-    x = conv_block(x, 3, [128, 128, 512], stage=3, block='a')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='b')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='c')
-    x = identity_block(x, 3, [128, 128, 512], stage=3, block='d')
-
-    x = conv_block(x, 3, [256, 256, 1024], stage=4, block='a')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='b')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='c')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='d')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='e')
-    x = identity_block(x, 3, [256, 256, 1024], stage=4, block='f')
-
-    x = conv_block(x, 3, [512, 512, 2048], stage=5, block='a')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='b')
-    x = identity_block(x, 3, [512, 512, 2048], stage=5, block='c')
-
-    x = AveragePooling2D((7, 7), name='avg_pool')(x)
-
-    if include_top:
-        x = Flatten()(x)
-        x = Dense(classes, activation='softmax', name='fc1000')(x)
-    else:
-        if pooling == 'avg':
-            x = GlobalAveragePooling2D()(x)
-        elif pooling == 'max':
-            x = GlobalMaxPooling2D()(x)
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-    # Create model.
-    model = Model(inputs, x, name='resnet50')
 
     # load weights
     if weights == 'imagenet':
@@ -287,12 +404,8 @@ def ResNet50(include_top=True, weights='imagenet',
 
 
 if __name__ == '__main__':
-    model = ResNet50(include_top=True, weights='imagenet')
-
-    # save as JSON
-    json_string = model.to_json()
-    with open("resnet50.json", "w") as of:
-        of.write(json_string)
+    model = keras.applications.resnet50.ResNet50(include_top=True, weights='imagenet')
+    kit_model = ResNet50(include_top = True, weights = 'imagenet')
 
     img_path = 'elephant.jpg'
     img = image.load_img(img_path, target_size=(224, 224))
@@ -303,3 +416,6 @@ if __name__ == '__main__':
 
     preds = model.predict(x)
     print('Predicted:', decode_predictions(preds))
+
+    preds = kit_model.predict(x)
+    print('Kit Predicted:', decode_predictions(preds))
