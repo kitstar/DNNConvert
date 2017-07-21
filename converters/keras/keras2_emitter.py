@@ -41,7 +41,7 @@ class Keras2Emitter(object):
 
     @classmethod
     def gen_code(self, output_filename):
-        of = open("kit_model.py", "w")
+        of = open(output_filename, "w")
 
         of.write("def KitModel():\n")
         
