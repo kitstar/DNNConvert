@@ -41,6 +41,10 @@ class Keras2Emitter(object):
 
     @classmethod
     def gen_code(self, output_filename):
+        of = open("kit_model.py", "w")
+
+        of.write("def KitModel():\n")
+        
         # bfs
         traverse_nodes = self.IR_graph.get_input_layers()[:]
         while len(traverse_nodes) > 0:
@@ -50,7 +54,7 @@ class Keras2Emitter(object):
             if hasattr(self, "emit_" + node_type):
                 func = getattr(self, "emit_" + node_type)
                 line = func(current_node)
-                print (line)
+                of.write("    " + line + "\n")
             else:
                 print("KerasEmitter has not supported operator [%s]." % (node_type))
                 self.emit_UNKNOWN(current_node)
@@ -66,7 +70,9 @@ class Keras2Emitter(object):
                 "model",
                 listToStr(self.IR_graph.get_input_layers()),
                 listToStr(self.IR_graph.get_output_layers()))
-        print (last_line)
+        of.write("    " + last_line + "\n")
+        of.write("    return model\n")
+        of.close()
 
 
 
