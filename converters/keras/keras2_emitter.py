@@ -104,6 +104,35 @@ class Keras2Emitter(object):
         return ret
 
 
+    @staticmethod
+    def _emit_pooling(IR_node, func):
+        dim = len(IR_node.IR_layer.attr["strides"].list.i) - 2
+
+        padding = IR_node.IR_layer.attr["padding"].s
+        padding = padding.lower()
+
+        pool_size = list()
+        strides = list()
+        for idx in range(1, dim + 1):
+            pool_size.append(IR_node.IR_layer.attr['ksize'].list.i[idx])
+            strides.append(IR_node.IR_layer.attr['strides'].list.i[idx])
+        pool_size = listToStr(pool_size)
+        strides = listToStr(strides)
+
+        ret = "{:<15} = {}{}D(name = \'{}\', pool_size = ({}), strides = ({}), padding = \'{}\')({})".format(
+                IR_node.name,
+                func,
+                dim,
+                IR_node.name,
+                pool_size,
+                strides,
+                padding,
+                IR_node.in_edges[0])
+
+        return ret
+
+
+
 
     @classmethod
     def emit_UNKNOWN(self, IR_node):
@@ -150,8 +179,15 @@ class Keras2Emitter(object):
 
 
     @classmethod
-    def emit_MaxPool2D1(self, IR_node):
-        code = "no implement"
+    def emit_MaxPool2D(self, IR_node):
+        code = Keras2Emitter._emit_pooling(IR_node, "MaxPooling")
+        return code
+
+
+
+    @classmethod
+    def emit_AvgPool2D(self, IR_node):
+        code = Keras2Emitter._emit_pooling(IR_node, "AveragePooling")
         return code
 
 
@@ -287,7 +323,8 @@ class Keras2Emitter(object):
     @classmethod
     def emit_Concat(self, IR_node):
         inputs = listToStr(IR_node.in_edges)
-        code = "{:<15} = Concatenate()({})".format(
+        code = "{:<15} = Concatenate(name = \"{}\")({})".format(
+                IR_node.name, 
                 IR_node.name, 
                 inputs)
         return code
@@ -295,13 +332,36 @@ class Keras2Emitter(object):
 
     @classmethod
     def emit_BatchNorm(self, IR_node):
-        code = "{:<15} = BatchNormalization(name = {}, axis = {})({})".format(
+        code = "{:<15} = BatchNormalization(name = \"{}\", axis = {})({})".format(
                 IR_node.name,
                 IR_node.name,
                 IR_node.IR_layer.attr['axis'].i,
                 IR_node.in_edges[0])
         return code
 
+
+    @classmethod
+    def emit_pad(self, IR_node):
+        if IR_node.IR_layer.attr['mode'].s == "CONSTANT":
+            func = "ZeroPadding"
+
+        dim = len(IR_node.IR_layer.attr['padding'].list.i) // 2
+
+        padding_str = ""
+        for idx in range(0, dim):
+            padding_str += "({}, {}),".format(
+                    IR_node.IR_layer.attr['padding'].list.i[idx + idx],
+                    IR_node.IR_layer.attr['padding'].list.i[idx + idx + 1])
+
+        code = "{:<15} = {}{}D(name = \"{}\", padding = ({}))({})".format(
+                IR_node.name,
+                func,
+                dim,
+                IR_node.name,
+                padding_str,
+                IR_node.in_edges[0])
+
+        return code
 
 
 

@@ -213,6 +213,24 @@ class Keras2Parser(object):
         self._defuse_activation(keras_node)
 
 
+
+    @classmethod
+    def _convert_padding_api(self, keras_node, IR_node, mode):
+         # name, op
+        Keras2Parser._copy_and_reop(keras_node, IR_node, "pad")
+
+        # input edge
+        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+        
+        IR_node.attr['mode'].s = mode
+
+        # padding
+        for e in keras_node.keras_layer.padding:
+            for j in e:
+                IR_node.attr["padding"].list.i.append(j)
+
+
+
     @classmethod
     def rename_UNKNOWN(self, source_node):
         # only for training
@@ -514,3 +532,48 @@ class Keras2Parser(object):
 
         # axis
         IR_node.attr['axis'].i = keras_node.keras_layer.axis
+
+
+    @classmethod
+    def rename_ZeroPadding2D(self, keras_node):
+        IR_node = self.IR_graph.node.add()
+        self._convert_padding_api(keras_node, IR_node, "CONSTANT")
+
+
+
+    @classmethod
+    def rename_AveragePooling2D(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(source_node, IR_node, "AvgPool2D")
+
+        # input edge
+        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+
+        # padding
+        Keras2Parser._convert_padding(source_node, IR_node)
+
+        # strides
+        if isinstance(source_node.keras_layer.strides, tuple) or isinstance(source_node.keras_layer.strides, list):
+            sh, sw = source_node.keras_layer.strides
+        else:
+            sh = source_node.keras_layer.strides
+            sw = sh
+
+        IR_node.attr["strides"].list.i.append(1)
+        IR_node.attr["strides"].list.i.append(sh)
+        IR_node.attr["strides"].list.i.append(sw)
+        IR_node.attr["strides"].list.i.append(1)
+
+        # pool_size
+        if isinstance(source_node.keras_layer.pool_size, tuple) or isinstance(source_node.keras_layer.pool_size, list):
+            ph, pw = source_node.keras_layer.pool_size
+        else:
+            ph = source_node.keras_layer.pool_size
+            pw = ph
+    
+        IR_node.attr["ksize"].list.i.append(1)
+        IR_node.attr["ksize"].list.i.append(sh)
+        IR_node.attr["ksize"].list.i.append(sw)
+        IR_node.attr["ksize"].list.i.append(1)
