@@ -8,6 +8,7 @@ import keras as _keras
 from common.IR.IR_graph import IRGraph
 import common.IR.graph_pb2 as graph_pb2
 from common.IR.graph_pb2 import NodeDef, GraphDef, DataType
+from common.utils import listToStr
 
 
 class Keras2Emitter(object):
@@ -77,7 +78,7 @@ class Keras2Emitter(object):
     @classmethod
     def gen_code(self, output_filename):
         # bfs
-        traverse_nodes = self.IR_graph.get_input_layers()
+        traverse_nodes = self.IR_graph.get_input_layers()[:]
         while len(traverse_nodes) > 0:
             current_node = self.IR_graph.get_node(traverse_nodes.pop())
             node_type = current_node.type
@@ -97,33 +98,11 @@ class Keras2Emitter(object):
                     traverse_nodes.append(next_node)
 
 
-
-    @staticmethod
-    def _copy_and_reop(source_node, IR_node, new_op = None):
-        node_info = source_node.keras_layer
-        if new_op == None:
-            new_op = node_info.__class__.__name__
-        IR_node.name = node_info.name
-        IR_node.op = new_op
-        if hasattr(node_info, "dtype"):
-            IR_node.attr["dtype"].type = Keras2Parser.dtype_map[node_info.dtype]
-
-
-
-    @staticmethod
-    def _convert_inedge(source_node, IR_node, layer_name_map):
-        for e in source_node.in_edges:
-            IR_node.input.append(layer_name_map[e])
-
-
-    @staticmethod
-    def _convert_dataformat(source_node, target_node):
-        if source_node.keras_layer.data_format == 'channel_last':
-            target_node.attr["data_format"].s = "NHWC"
-        elif source_node.keras_layer.data_format == 'channel_first':
-            target_node.attr["data_format"].s = "NCHW"
-        else:
-            print("Warning: [%s] don't have data format info." % (source_node.keras_layer.name))
+        last_line = "{:<15} = Model(inputs = [{}], outputs = [{}])".format(
+                "model",
+                listToStr(self.IR_graph.get_input_layers()),
+                listToStr(self.IR_graph.get_output_layers()))
+        print (last_line)
 
 
 
@@ -137,60 +116,40 @@ class Keras2Emitter(object):
             print ("Error: Invalid embedding [%s]!" % (source_node.keras_layer.padding))
 
 
-
-    @classmethod
-    def _defuse_activation(self, keras_node):
-        if keras_node.keras_layer.activation == None:
-            return
-
-        if keras_node.keras_layer.activation.__name__ == "linear":
-            return
-
-        IR_node = self.IR_graph.node.add()
-        IR_node.name = keras_node.keras_layer.name + "_activation"
-        IR_node.op = Keras2Parser.activation_map[keras_node.keras_layer.activation.__name__]
-        IR_node.input.append(keras_node.keras_layer.name)
-        self.keras_graph.layer_name_map[keras_node.keras_layer.name] = IR_node.name
-
-
-
+    
     @staticmethod
     def _emit_convolution(IR_node):
         dim = len(IR_node.IR_layer.attr["strides"].list.i)
-        print (IR_node.IR_layer)
-        print (IR_node.in_edges)
 
-        ret = "{} = Conv{}D(filters = {}, kernel_size = ())({})".format(
+        filter = IR_node.IR_layer.attr["filter"].list.i[dim + 1]
+        
+        kernel = list()
+        for idx in range(0, dim):
+            kernel.append(IR_node.IR_layer.attr["filter"].list.i[idx])
+        kernel = listToStr(kernel)
+
+        strides = list()
+        for e in IR_node.IR_layer.attr["strides"].list.i:
+            strides.append(e)
+        strides = listToStr(strides)
+
+        use_bias = IR_node.IR_layer.attr["use_bias"].b 
+
+        padding = IR_node.IR_layer.attr["padding"].s
+        padding = padding.lower()
+
+        ret = "{:<15} = Conv{}D(filters = {}, kernel_size = ({}), strides = ({}), padding = \'{}\', use_bias = {})({})".format(
                 IR_node.name, 
                 dim,
-                IR_node.IR_layer.attr["filter"].i,
+                filter,
+                kernel,
+                strides,
+                padding,
+                use_bias,
                 IR_node.in_edges[0])
 
         return ret
-        # name, op
-        Keras2Parser._copy_and_reop(keras_node, IR_node)
 
-        # input edge
-        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
-        
-        # padding        
-        Keras2Parser._convert_padding(keras_node, IR_node)
-
-        # filter
-        IR_node.attr["filter"].i = keras_node.keras_layer.filters
-
-        # use_bias
-        IR_node.attr["use_bias"].b = keras_node.keras_layer.use_bias
-
-        # strides
-        for e in keras_node.keras_layer.strides:
-            IR_node.attr["strides"].list.i.append(e)
-
-        while len(IR_node.attr["strides"].list.i) < dim:
-            IR_node.attr["strides"].list.i.append(IR_node.attr["strides"].list.i.at(0))
-
-        # activation
-        self._defuse_activation(keras_node)
 
 
     @classmethod
@@ -202,13 +161,13 @@ class Keras2Emitter(object):
     @classmethod
     def emit_DataInput(self, IR_node):
         shape_str = IRGraph.shapeToStr(IR_node.IR_layer.attr["shape"].shape)
-        code = "{} = Input(shape = ({}), dtype = \"{}\")".format(IR_node.IR_layer.name, shape_str, self.dtype_map[IR_node.IR_layer.attr["dtype"].type])
+        code = "{:<15} = Input(shape = ({},), dtype = \"{}\")".format(IR_node.IR_layer.name, shape_str, self.dtype_map[IR_node.IR_layer.attr["dtype"].type])
         return code
 
 
 
     @classmethod
-    def rename_Conv1D(self, keras_node):
+    def emit_Conv1D(self, IR_node):
         return Keras2Emitter._emit_convolution(IR_node)
 
 
@@ -220,7 +179,7 @@ class Keras2Emitter(object):
 
 
     @classmethod
-    def rename_Conv3D(self, source_node):
+    def emit_Conv3D(self, source_node):
         IR_node = self.IR_graph.node.add()         
         self._convert_convolution(keras_node, IR_node, 3)
        
@@ -277,66 +236,67 @@ class Keras2Emitter(object):
 
 
 
-
     @classmethod
-    def rename_Dropout(self, source_node):
-        # only for training
-        IR_node = self.IR_graph.node.add()
+    def emit_Dropout(self, IR_node):
+        seed = 'None'
+        if 'seed' in IR_node.IR_layer.attr:
+            seed = IR_node.IR_layer.attr['seed'].i
 
-        # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
+        ret = "{:<15} = Dropout(rate = {}, seed = {})({})".format(
+                IR_node.name,
+                IR_node.IR_layer.attr["keep_prob"].f,
+                seed,
+                IR_node.in_edges[0])
 
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
-
-        IR_node.attr["keep_prob"].f = source_node.keras_layer.rate
-        if source_node.keras_layer.seed != None:
-            IR_node.attr["seed"].i = source_node.keras_layer.seed
-  
+        return ret
+ 
 
 
     @classmethod
-    def rename_Dense(self, source_node):
-        IR_node = self.IR_graph.node.add()
+    def emit_Fully_connected(self, IR_node):
+        units = IR_node.IR_layer.attr["units"].i
+        use_bias = IR_node.IR_layer.attr["use_bias"].b
 
-        # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node, "Fully_connected")
-        
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+        ret = "{:<15} = Dense(units = {}, use_bias = {})({})".format(
+                IR_node.name, 
+                units,
+                use_bias,
+                IR_node.in_edges[0])
 
-        # units
-        IR_node.attr["units"].i = source_node.keras_layer.units
-
-        # use_bias
-        IR_node.attr["use_bias"].b = source_node.keras_layer.use_bias
-
-        # activation
-        self._defuse_activation(source_node)
+        return ret
 
 
 
     @classmethod
-    def rename_Flatten(self, source_node):
-        IR_node = self.IR_graph.node.add()
-
-        # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
-
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+    def emit_Flatten(self, IR_node):
+        code = "{:<15} = Flatten()({})".format(
+            IR_node.name, IR_node.in_edges[0])
+        return code
 
 
 
     @classmethod
-    def rename_Activation(self, keras_node):
-        IR_node = self.IR_graph.node.add()
+    def emit_Relu(self, IR_node):
+        code = "{:<15} = Activation(\'relu\')({})".format(
+                IR_node.name, IR_node.in_edges[0])
+        return code
 
-        # name, op
-        Keras2Parser._copy_and_reop(keras_node, IR_node, self.activation_map[keras_node.keras_layer.activation.__name__])
 
-        # input edge
-        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+
+    @classmethod
+    def emit_Softmax(self, IR_node):
+        code = "{:<15} = Activation(\'softmax\')({})".format(
+                IR_node.name, IR_node.in_edges[0])
+        return code
+
+
+
+    @classmethod
+    def emit_Sigmoid(self, IR_node):
+        code = "{:<15} = Activation(\'sigmoid\')({})".format(
+                IR_node.name, IR_node.in_edges[0])
+        return code
+
 
 
 

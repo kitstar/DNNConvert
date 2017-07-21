@@ -48,6 +48,7 @@ class IRGraph(object):
     def __init__(self, filename):
         self.layer_map = {}        # key: layer_name    value: IR layer 
         self.input_layers = list()
+        self.output_layers = list()
         self.layer_name_map = dict()   # maybe re-direct to defuse or fuse node
 
         self.model = graph_pb2.GraphDef()
@@ -64,6 +65,8 @@ class IRGraph(object):
                 self._make_connection(pred, layer.name)
 
         self._make_input_layers()
+        self._make_output_layers()
+
 
 
     @classmethod
@@ -74,18 +77,37 @@ class IRGraph(object):
                 self.input_layers.append(name)
 
 
+
+    @classmethod
+    def _make_output_layers(self):
+        for name, layer in self.layer_map.items():
+            if len(layer.out_edges) == 0:
+                self.output_layers.append(name)
+
+
+
     @classmethod
     def get_input_layers(self):
         if self.input_layers == None:
-            print ("Warning: Keras2Graph has not been built.")
+            print ("Warning: IRGraph has not been built.")
             build(self)
         return self.input_layers
 
-    
+ 
+ 
+    @classmethod
+    def get_output_layers(self):
+        if self.output_layers == None:
+            print ("Warning: IRGraph has not been built.")
+            build(self)
+        return self.output_layers
+
+
+   
     @classmethod
     def get_node(self, name):
         if not name in self.layer_map:
-            print ("Error: Keras2Graph doesn't have node [%s]." % name)
+            print ("Error: IRGraph doesn't have node [%s]." % name)
             return None
         else:
             return self.layer_map[name]

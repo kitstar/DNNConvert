@@ -27,3 +27,16 @@ def load_protobuf_from_file(container, filename):
         raise IOError("Cannot parse file %s: %s." % (filename, str(e)))
 
     return container
+
+
+def listToStr(data):
+    ret = ""
+    first = True
+    for e in data:
+        if first == False:
+            ret += ", "
+        ret += str(e)
+        first = False
+    return ret
+
+
