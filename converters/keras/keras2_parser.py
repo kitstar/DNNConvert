@@ -396,21 +396,30 @@ class Keras2Parser(object):
         # mask_zero
         IR_node.attr["mask_zero"].b = source_node.keras_layer.mask_zero
 
+
+
     @classmethod
-    def rename_LSTM(self, source_node):
+    def rename_LSTM(self, keras_node):
         IR_node = self.IR_graph.node.add()
 
         # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
+        Keras2Parser._copy_and_reop(keras_node, IR_node)
         
         # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
 
         # units
-        IR_node.attr["units"].i = source_node.keras_layer.units
+        IR_node.attr["units"].i = keras_node.keras_layer.units
+
+        # use_bias
+        IR_node.attr["use_bias"].b = keras_node.keras_layer.use_bias
+
+        # for Keras, drop_out and recurrent_dropout
+        IR_node.attr["dropout"].f = keras_node.keras_layer.dropout
+        IR_node.attr["recurrent_dropout"].f = keras_node.keras_layer.recurrent_dropout
 
         # activation
-        self._defuse_activation(source_node)
+        self._defuse_activation(keras_node)
 
 
 
@@ -491,3 +500,17 @@ class Keras2Parser(object):
         # arguments not implementent
         #print (type(source_node.keras_layer.arguments))
 
+
+
+    @classmethod
+    def rename_BatchNormalization(self, keras_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        Keras2Parser._copy_and_reop(keras_node, IR_node, 'BatchNorm')
+        
+        # input edge
+        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+
+        # axis
+        IR_node.attr['axis'].i = keras_node.keras_layer.axis
