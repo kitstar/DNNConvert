@@ -4,32 +4,29 @@ from __future__ import print_function
 
 import os
 import common.IR.graph_pb2 as graph_pb2
+from common.DataStructure.graph import Graph, GraphNode
 from common.utils import load_protobuf_from_file
 
 
-class IRGraphNode(object):        
+class IRGraphNode(GraphNode):
 
-    def __init__(self, layer):
-        self.in_edges = list()
-        self.out_edges = list()
-        self.IR_layer = layer
-        self.left_in_edges = 0
-
-
+    @property
+    def IR_layer(self):
+        return self.layer
 
     @property
     def name(self):
-        return self.IR_layer.name
+        return self.layer.name
 
 
 
     @property
     def type(self):
-        return self.IR_layer.op
+        return self.layer.op
 
 
 
-class IRGraph(object):
+class IRGraph(Graph):
   
     @staticmethod
     def shapeToStr(tensor_shape):
@@ -53,7 +50,8 @@ class IRGraph(object):
 
         self.model = graph_pb2.GraphDef()
         load_protobuf_from_file(self.model, filename)
-  
+ 
+
   
     @classmethod
     def build(self):
@@ -66,54 +64,3 @@ class IRGraph(object):
 
         self._make_input_layers()
         self._make_output_layers()
-
-
-
-    @classmethod
-    def _make_input_layers(self):
-        for name, layer in self.layer_map.items():
-            layer.left_in_edges = len(layer.in_edges)
-            if len(layer.in_edges) == 0:
-                self.input_layers.append(name)
-
-
-
-    @classmethod
-    def _make_output_layers(self):
-        for name, layer in self.layer_map.items():
-            if len(layer.out_edges) == 0:
-                self.output_layers.append(name)
-
-
-
-    @classmethod
-    def get_input_layers(self):
-        if self.input_layers == None:
-            print ("Warning: IRGraph has not been built.")
-            build(self)
-        return self.input_layers
-
- 
- 
-    @classmethod
-    def get_output_layers(self):
-        if self.output_layers == None:
-            print ("Warning: IRGraph has not been built.")
-            build(self)
-        return self.output_layers
-
-
-   
-    @classmethod
-    def get_node(self, name):
-        if not name in self.layer_map:
-            print ("Error: IRGraph doesn't have node [%s]." % name)
-            return None
-        else:
-            return self.layer_map[name]
-        
-
-    @classmethod
-    def _make_connection(self, src, dst):
-        self.layer_map[src].out_edges.append(dst)
-        self.layer_map[dst].in_edges.append(src)

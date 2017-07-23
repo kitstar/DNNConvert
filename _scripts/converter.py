@@ -48,6 +48,7 @@ def _convert(args):
         parser = CaffeParser(model)
         parser.gen_IR()
 
+        print (parser.caffe_graph)
         json_str = json_format.MessageToJson(parser.IR_graph, preserving_proto_field_name = True)
         with open("kit_model.json", "wb") as of:
             of.write(json_str)
