@@ -33,83 +33,68 @@ class CaffeParser(object):
 
     @staticmethod
     def _load_model(model_network_path, model_weight_path):
-        """Load a keras model from disk
+        """Load a caffe model from disk
 
         Parameters
         ----------
         model_network_path: str
-            Path where the model network path is (json file)
+            Path where the model network path is (protobuf file)
 
         model_weight_path: str
             Path where the model network weights are (hd5 file)
 
         Returns
         -------
-        model: A keras model
+        model: A caffe model
         """
-        from keras.models import model_from_json
-        import json
+        import converters.caffe.caffe_pb2 as caffe_pb2
+        from common.utils import load_protobuf_from_file
 
         # Load the model network
-        json_file = open(model_network_path, 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
+        loaded_model = caffe_pb2.NetParameter()
+        load_protobuf_from_file(loaded_model, model_network_path)
 
         # Load the model weights
+        """
         loaded_model = model_from_json(loaded_model_json)
         if os.path.isfile(model_weight_path) == True:
             loaded_model.load_weights(model_weight_path)
         else:
-            print("Warning: Keras Model Weight File [%s] is not found." % (model_weight_path))
-
+            print("Warning: Caffe Model Weight File [%s] is not found." % (model_weight_path))
+        """
         return loaded_model
 
 
 
     @classmethod
-    def __init__(self, model):
+    def __init__(self, model, phase):
         self.IR_graph = GraphDef()
-        # load model files into Keras graph
-        if isinstance(model, basestring):
-            model = _keras.models.load_model(model)
-        elif isinstance(model, tuple):
-            model = Keras2Parser._load_model(model[0], model[1])
-
-        _keras.utils.plot_model(model, "model.png", show_shapes = True)
+        # load model files into caffe graph
+        model = CaffeParser._load_model(model[0], model[1])
 
         # Build network graph
-        self.data_format = _keras.backend.image_data_format()
-        self.keras_graph =  Keras2Graph(model)
-        self.keras_graph.build()
+        self.caffe_graph =  CaffeGraph(model, phase)
+        self.caffe_graph.build()
 
 
 
     @classmethod
     def gen_IR(self):
-        # bfs
-        traverse_nodes = self.keras_graph.get_input_layers()
-        while len(traverse_nodes) > 0:
-            current_node = self.keras_graph.get_node(traverse_nodes.pop())
+        for layer in self.caffe_graph.topological_sort:
+            current_node = self.caffe_graph.get_node(layer)
             node_type = current_node.type
 
             if hasattr(self, "rename_" + node_type):
                 func = getattr(self, "rename_" + node_type)
                 func(current_node)
             else:
-                print("KerasParser has not supported operator [%s]." % (node_type))
+                print("CaffeParser has not supported operator [%s]." % (node_type))
                 self.rename_UNKNOWN(current_node)
-
-            for next_node in current_node.out_edges:
-                next_node_info = self.keras_graph.get_node(next_node)
-                next_node_info.left_in_edges -= 1
-                if next_node_info.left_in_edges == 0:
-                    traverse_nodes.append(next_node)
-
 
 
     @staticmethod
     def _copy_and_reop(source_node, IR_node, new_op = None):
-        node_info = source_node.keras_layer
+        node_info = source_node.layer
         if new_op == None:
             new_op = source_node.type
         IR_node.name = source_node.name
@@ -236,26 +221,27 @@ class CaffeParser(object):
         IR_node = self.IR_graph.node.add()
         
         # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
+        CaffeParser._copy_and_reop(source_node, IR_node)
         
         # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
-
+        CaffeParser._convert_inedge(source_node, IR_node, self.caffe_graph.layer_name_map)
 
 
     @classmethod
-    def rename_InputLayer(self, source_node):
+    def rename_Data(self, source_node):
+        self.rename_DataInput(source_node)
+
+
+    @classmethod
+    def rename_DataInput(self, source_node):
         # only for training
         IR_node = self.IR_graph.node.add()
         
         # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node, "DataInput")
+        CaffeParser._copy_and_reop(source_node, IR_node, "DataInput")
         
-        # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
-
         # shape
-        Keras2Parser._copy_shape(source_node.keras_layer, IR_node)
+#        Keras2Parser._copy_shape(source_node.keras_layer, IR_node)
 
 
 

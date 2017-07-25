@@ -11,6 +11,7 @@ class GraphNode(object):
         self.left_in_edges = 0
 
 
+
 class Graph(object):
  
     @classmethod
@@ -18,11 +19,19 @@ class Graph(object):
         # key: layer_name    value: keras layer
         self.layer_map = {}
         self.input_layers = list()
+        self.output_layers = list()
         self.layer_name_map = dict()   # maybe re-direct to defuse or fuse node
+        self.topological_sort = list()
         self.model = model
-    
+
+
+
+    @classmethod
     def build(self):
-        pass
+        self._make_input_layers()
+        self._make_output_layers()
+        self._get_topological_sort()
+
 
 
     @classmethod
@@ -33,7 +42,6 @@ class Graph(object):
                 self.input_layers.append(name)
 
 
-
     @classmethod
     def _make_output_layers(self):
         for name, layer in self.layer_map.items():
@@ -41,29 +49,11 @@ class Graph(object):
                 self.output_layers.append(name)
 
 
-
-    @classmethod
-    def get_input_layers(self):
-        if self.input_layers == None:
-            print ("Warning: Keras2Graph has not been built.")
-            build(self)
-        return self.input_layers
-
-
-
-    @classmethod
-    def get_output_layers(self):
-        if self.output_layers == None:
-            print ("Warning: IRGraph has not been built.")
-            build(self)
-        return self.output_layers
-
-
     
     @classmethod
     def get_node(self, name):
         if not name in self.layer_map:
-            print ("Error: Keras2Graph doesn't have node [%s]." % name)
+            print ("Error: Graph doesn't have node [%s]." % name)
             return None
         else:
             return self.layer_map[name]
@@ -71,5 +61,26 @@ class Graph(object):
 
     @classmethod
     def _make_connection(self, src, dst):
-        self.layer_map[src].out_edges.append(dst)
-        self.layer_map[dst].in_edges.append(src)
+        if src == dst:
+            print ("Warning: Graph Construct a self-loop node {}. Ignored.".format(src))
+            return
+
+        if not dst in self.layer_map[src].out_edges:
+            self.layer_map[src].out_edges.append(dst)
+        if not src in self.layer_map[dst].in_edges:
+            self.layer_map[dst].in_edges.append(src)
+
+
+
+    @classmethod
+    def _get_topological_sort(self):
+        self.topological_sort = self.input_layers[:]
+        idx = 0
+        while idx < len(self.topological_sort):
+            current_node = self.get_node(self.topological_sort[idx])
+            for next_node in current_node.out_edges:
+                next_node_info = self.get_node(next_node)
+                next_node_info.left_in_edges -= 1
+                if next_node_info.left_in_edges == 0:
+                    self.topological_sort.append(next_node)
+            idx += 1
