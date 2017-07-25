@@ -45,10 +45,8 @@ class Keras2Emitter(object):
 
         of.write("def KitModel():\n")
         
-        # bfs
-        traverse_nodes = self.IR_graph.get_input_layers()[:]
-        while len(traverse_nodes) > 0:
-            current_node = self.IR_graph.get_node(traverse_nodes.pop())
+        for layer in self.IR_graph.topological_sort:
+            current_node = self.IR_graph.get_node(layer)
             node_type = current_node.type
 
             if hasattr(self, "emit_" + node_type):
@@ -68,8 +66,8 @@ class Keras2Emitter(object):
 
         last_line = "{:<15} = Model(inputs = [{}], outputs = [{}])".format(
                 "model",
-                listToStr(self.IR_graph.get_input_layers()),
-                listToStr(self.IR_graph.get_output_layers()))
+                listToStr(self.IR_graph.input_layers),
+                listToStr(self.IR_graph.output_layers))
         of.write("    " + last_line + "\n")
         of.write("    return model\n")
         of.close()
@@ -181,9 +179,8 @@ class Keras2Emitter(object):
 
 
     @classmethod
-    def emit_Conv3D(self, source_node):
-        IR_node = self.IR_graph.node.add()         
-        self._convert_convolution(keras_node, IR_node, 3)
+    def emit_Conv3D(self, IR_node):
+        return Keras2Emitter._emit_convolution(IR_node)
        
 
 

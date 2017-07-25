@@ -8,9 +8,10 @@ import keras as _keras
 from converters.keras.keras2_graph import Keras2Graph
 import common.IR.graph_pb2 as graph_pb2
 from common.IR.graph_pb2 import NodeDef, GraphDef, DataType
+from common.DataStructure.parser import Parser
 
 
-class Keras2Parser(object):
+class Keras2Parser(Parser):
    
     dtype_map = {
             "float16" : graph_pb2.DT_FLOAT16,
@@ -69,7 +70,8 @@ class Keras2Parser(object):
 
     @classmethod
     def __init__(self, model):
-        self.IR_graph = GraphDef()
+        super(Keras2Parser, self).__init__()
+
         # load model files into Keras graph
         if isinstance(model, basestring):
             model = _keras.models.load_model(model)
@@ -87,10 +89,8 @@ class Keras2Parser(object):
 
     @classmethod
     def gen_IR(self):
-        # bfs
-        traverse_nodes = self.keras_graph.get_input_layers()
-        while len(traverse_nodes) > 0:
-            current_node = self.keras_graph.get_node(traverse_nodes.pop())
+        for layer in self.keras_graph.topological_sort:
+            current_node = self.keras_graph.get_node(layer)
             node_type = current_node.type
 
             if hasattr(self, "rename_" + node_type):
@@ -99,12 +99,6 @@ class Keras2Parser(object):
             else:
                 print("KerasParser has not supported operator [%s]." % (node_type))
                 self.rename_UNKNOWN(current_node)
-
-            for next_node in current_node.out_edges:
-                next_node_info = self.keras_graph.get_node(next_node)
-                next_node_info.left_in_edges -= 1
-                if next_node_info.left_in_edges == 0:
-                    traverse_nodes.append(next_node)
 
 
 

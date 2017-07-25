@@ -43,14 +43,10 @@ class IRGraph(Graph):
     
     @classmethod
     def __init__(self, filename):
-        self.layer_map = {}        # key: layer_name    value: IR layer 
-        self.input_layers = list()
-        self.output_layers = list()
-        self.layer_name_map = dict()   # maybe re-direct to defuse or fuse node
+        model = graph_pb2.GraphDef()
+        load_protobuf_from_file(model, filename)
+        super(IRGraph, self).__init__(model)
 
-        self.model = graph_pb2.GraphDef()
-        load_protobuf_from_file(self.model, filename)
- 
 
   
     @classmethod
@@ -61,6 +57,14 @@ class IRGraph(Graph):
             self.layer_name_map[layer.name] = layer.name
             for pred in layer.input:
                 self._make_connection(pred, layer.name)
+        super(IRGraph, self).build()
 
-        self._make_input_layers()
-        self._make_output_layers()
+
+    @classmethod
+    def saveToJson(filename = None):
+        json_str = json_format.MessageToJson(parser.IR_graph, preserving_proto_field_name = True)
+        if filename != None:
+            with open(filename, "wb") as of:
+                of.write(json_str)
+            print ("IR saved as {}".format(filename))
+        return json_str

@@ -11,7 +11,6 @@ from __future__ import print_function
 import logging as _logging
 import sys as _sys
 import google.protobuf.text_format as text_format
-import google.protobuf.json_format as json_format
 # expose files as imports
 #from ..models import utils
 
@@ -40,18 +39,14 @@ def _convert(args):
             if args.meanImageProtoPath:
                 model = (args.srcModelPath, args.caffeProtoTxtPath, args.meanImageProtoPath)
             else:
-                model = (args.srcModelPath, args.caffeProtoTxtPath)
+                model = (args.caffeProtoTxtPath, args.srcModelPath)
         else:
             model = args.srcModelPath
 
         from converters.caffe.caffe_parser import CaffeParser
-        parser = CaffeParser(model)
+        parser = CaffeParser(model, args.caffePhase)
         parser.gen_IR()
-
-        print (parser.caffe_graph)
-        json_str = json_format.MessageToJson(parser.IR_graph, preserving_proto_field_name = True)
-        with open("kit_model.json", "wb") as of:
-            of.write(json_str)
+        parser.saveToJson("kit_model.json")
 
         proto_str = parser.IR_graph.SerializeToString()
         with open('kit_model.prototxt', 'wb') as of:
@@ -74,11 +69,7 @@ def _convert(args):
             from converters.keras.keras2_parser import Keras2Parser
             parser = Keras2Parser(model)
             parser.gen_IR()
-
-            json_str = json_format.MessageToJson(parser.IR_graph, preserving_proto_field_name = True)
-#            this_str = text_format.MessageToString(parser.IR_graph, True)
-            with open("kit_model.json", "wb") as of:
-                of.write(json_str)
+            parser.saveToJson("kit_model.json")
 
             proto_str = parser.IR_graph.SerializeToString()
             with open('kit_model.prototxt', 'wb') as of:
@@ -115,7 +106,7 @@ def _main():
     parser.add_argument('--scale', type=float, default=1.0, help='Value by which the image data must be scaled (optional, default 1.0)')
     parser.add_argument('--classInputPath', type=unicode, default='', help='Path to class labels (ordered new line separated) for treating the neural network as a classifier')
     parser.add_argument('--predictedFeatureName', type=unicode, default='class_output', help='Name of the output feature that captures the class name (for classifiers models).')
-    parser.add_argument('--caffe_phase', type=unicode, default='TRAIN', help='Convert the specific phase of caffe model.')
+    parser.add_argument('--caffePhase', type=unicode, default='TRAIN', help='Convert the specific phase of caffe model.')
 
     args = parser.parse_args()
     ret = _convert(args)

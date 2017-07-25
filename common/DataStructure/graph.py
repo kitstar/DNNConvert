@@ -62,7 +62,7 @@ class Graph(object):
     @classmethod
     def _make_connection(self, src, dst):
         if src == dst:
-            print ("Warning: Graph Construct a self-loop node {}. Ignored.".format(src))
+#            print ("Warning: Graph Construct a self-loop node {}. Ignored.".format(src))
             return
 
         if not dst in self.layer_map[src].out_edges:

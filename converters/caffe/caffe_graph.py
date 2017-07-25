@@ -95,9 +95,6 @@ class CaffeGraph(Graph):
                 self._make_connection(layer.name, output_name)
 
         super(CaffeGraph, self).build()
-        self._make_input_layers()
-        self._make_output_layers()
-        self._get_topological_sort()
 
 
 

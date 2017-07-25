@@ -7,9 +7,9 @@ import os
 from converters.caffe.caffe_graph import CaffeGraph
 import common.IR.graph_pb2 as graph_pb2
 from common.IR.graph_pb2 import NodeDef, GraphDef, DataType
+from common.DataStructure.parser import Parser
 
-
-class CaffeParser(object):
+class CaffeParser(Parser):
    
     dtype_map = {
             "float16" : graph_pb2.DT_FLOAT16,
@@ -68,7 +68,8 @@ class CaffeParser(object):
 
     @classmethod
     def __init__(self, model, phase):
-        self.IR_graph = GraphDef()
+        super(CaffeParser, self).__init__()
+        
         # load model files into caffe graph
         model = CaffeParser._load_model(model[0], model[1])
 
@@ -88,7 +89,7 @@ class CaffeParser(object):
                 func = getattr(self, "rename_" + node_type)
                 func(current_node)
             else:
-                print("CaffeParser has not supported operator [%s]." % (node_type))
+#                print("CaffeParser has not supported operator [%s]." % (node_type))
                 self.rename_UNKNOWN(current_node)
 
 
