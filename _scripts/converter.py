@@ -46,7 +46,7 @@ def _convert(args):
         from converters.caffe.caffe_parser import CaffeParser
         parser = CaffeParser(model, args.caffePhase)
         parser.gen_IR()
-        parser.saveToJson("kit_model.json")
+        parser.saveToJson(args.dstModelPath)
 
         proto_str = parser.IR_graph.SerializeToString()
         with open('kit_model.prototxt', 'wb') as of:
@@ -56,10 +56,12 @@ def _convert(args):
 
     elif args.srcModelFormat == 'keras':
 #        try:
+            """
             if not args.inputNames:
                 raise TypeError("Neural network 'inputNames' are required for converting Keras models.")
             if not args.outputNames:
                 raise TypeError("Neural network 'outputNames' are required for converting Keras models.")
+            """
 
             if args.kerasJsonPath:
                 model = (args.kerasJsonPath, args.srcModelPath)
@@ -69,16 +71,17 @@ def _convert(args):
             from converters.keras.keras2_parser import Keras2Parser
             parser = Keras2Parser(model)
             parser.gen_IR()
-            parser.saveToJson("kit_model.json")
+            parser.saveToJson(args.dstModelPath)
 
             proto_str = parser.IR_graph.SerializeToString()
             with open('kit_model.prototxt', 'wb') as of:
                 of.write(proto_str)
 
-            
+            """ 
             from converters.keras.keras2_emitter import Keras2Emitter
             emitter = Keras2Emitter("kit_model.prototxt")
             emitter.gen_code("kit_new_model.py")
+            """
 
             return 0
     else:

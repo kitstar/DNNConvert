@@ -62,6 +62,7 @@ class CaffeParser(Parser):
         else:
             print("Warning: Caffe Model Weight File [%s] is not found." % (model_weight_path))
         """
+        print ("Caffe model file [%s] loaded successfully." % model_network_path)
         return loaded_model
 
 

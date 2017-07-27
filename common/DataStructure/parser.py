@@ -16,9 +16,11 @@ class Parser(object):
     @classmethod
     def saveToJson(self, filename = None):
         import google.protobuf.json_format as json_format
+        
         json_str = json_format.MessageToJson(self.IR_graph, preserving_proto_field_name = True)
         if filename != None:
-            with open(filename, "wb") as of:
+            with open(filename, "w") as of:
                 of.write(json_str)
-            print ("IR saved as {}".format(filename))
+            print ("IR saved as [{}].".format(filename))
+        
         return json_str

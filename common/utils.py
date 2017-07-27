@@ -16,7 +16,7 @@ def load_protobuf_from_file(container, filename):
         print("Parse file [%s] with binary format successfully." % (filename))
         return container
     except Exception as e:  # pylint: disable=broad-except
-        print("Trying to parse file [%s] with binary format but failed with error %s." % (filename, str(e)))
+        print("Info: Trying to parse file [%s] with binary format but failed with error [%s]." % (filename, str(e)))
 
     # Next try to read it as a text file.
     try:
