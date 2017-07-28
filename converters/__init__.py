@@ -7,9 +7,4 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import keras as _keras
 import logging as _logging
-if _keras.backend.backend() != 'tensorflow':
-    _HAS_KERAS_TF = False
-    _HAS_KERAS2_TF = False
-    _logging.warn('Currently, only Keras models with TensorFlow backend can be converted to CoreML.')

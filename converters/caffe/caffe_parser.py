@@ -11,20 +11,9 @@ from common.DataStructure.parser import Parser
 
 class CaffeParser(Parser):
    
-    dtype_map = {
-            "float16" : graph_pb2.DT_FLOAT16,
-            "float32" : graph_pb2.DT_FLOAT32,
-            "float64" : graph_pb2.DT_FLOAT64,
-            "int16"   : graph_pb2.DT_INT16,
-            "int32"   : graph_pb2.DT_INT32,
-            "int64"   : graph_pb2.DT_INT64,
-            "uint8"   : graph_pb2.DT_UINT8,
-            "uint16"  : graph_pb2.DT_UINT16
-            }
-
     activation_map = {
-            "relu"    : "Relu",
-            'softmax' : "Softmax",
+            "ReLU"    : "Relu",
+            'Dropout' : "Softmax",
             'sigmoid' : "Sigmoid",
             "tanh"    : "Tanh"
             }
@@ -90,8 +79,10 @@ class CaffeParser(Parser):
                 func = getattr(self, "rename_" + node_type)
                 func(current_node)
             else:
-#                print("CaffeParser has not supported operator [%s]." % (node_type))
+                print("CaffeParser has not supported operator [%s]." % (node_type))
                 self.rename_UNKNOWN(current_node)
+
+        print (self.IR_graph)
 
 
     @staticmethod
@@ -102,7 +93,7 @@ class CaffeParser(Parser):
         IR_node.name = source_node.name
         IR_node.op = new_op
         if hasattr(node_info, "dtype"):
-            IR_node.attr["dtype"].type = Keras2Parser.dtype_map[node_info.dtype]
+            pass
 
 
 
@@ -149,32 +140,30 @@ class CaffeParser(Parser):
 
 
     @classmethod
-    def _defuse_activation(self, keras_node):
-        if keras_node.keras_layer.activation == None:
+    def _defuse_activation(self, source_node):
+        if source_node.activation == "":
             return
-
-        if keras_node.keras_layer.activation.__name__ == "linear":
-            return
-
+        
         IR_node = self.IR_graph.node.add()
         IR_node.name = keras_node.keras_layer.name + "_activation"
-        IR_node.op = Keras2Parser.activation_map[keras_node.keras_layer.activation.__name__]
+        IR_node.op = CaffeParser.activation_map[source_node.activation]
         IR_node.input.append(keras_node.keras_layer.name)
         self.keras_graph.layer_name_map[keras_node.keras_layer.name] = IR_node.name
 
 
 
     @classmethod
-    def _convert_convolution(self, keras_node, IR_node, dim):
-         # name, op
-        Keras2Parser._copy_and_reop(keras_node, IR_node)
+    def _convert_convolution(self, source_node, IR_node):
+        # name, op
+        CaffeParser._copy_and_reop(source_node, IR_node)
 
         # input edge
-        Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+        CaffeParser._convert_inedge(source_node, IR_node, self.caffe_graph.layer_name_map)
         
         # padding        
-        Keras2Parser._convert_padding(keras_node, IR_node)
+#        Keras2Parser._convert_padding(keras_node, IR_node)
 
+        """
         # filter
         for e in keras_node.keras_layer.kernel_size:
             IR_node.attr["filter"].list.i.append(e)
@@ -184,10 +173,10 @@ class CaffeParser(Parser):
         else:
             IR_node.attr["filter"].list.i.append(keras_node.keras_layer.input_shape[1])
         IR_node.attr["filter"].list.i.append(keras_node.keras_layer.filters)
-
+        """
         # use_bias
-        IR_node.attr["use_bias"].b = keras_node.keras_layer.use_bias
-
+        IR_node.attr["use_bias"].b = source_node.layer.convolution_param.bias_term
+        """
         # strides
         for e in keras_node.keras_layer.strides:
             IR_node.attr["strides"].list.i.append(e)
@@ -196,8 +185,8 @@ class CaffeParser(Parser):
             IR_node.attr["strides"].list.i.append(IR_node.attr["strides"].list.i.at(0))
 
         # activation
-        self._defuse_activation(keras_node)
-
+        self._defuse_activation(source_node)
+        """
 
 
     @classmethod
@@ -255,9 +244,9 @@ class CaffeParser(Parser):
 
 
     @classmethod
-    def rename_Conv2D(self, keras_node):
-        IR_node = self.IR_graph.node.add()         
-        self._convert_convolution(keras_node, IR_node, 2)
+    def rename_Convolution(self, source_node):
+        IR_node = self.IR_graph.node.add() 
+        self._convert_convolution(source_node, IR_node)
 
 
 
@@ -338,16 +327,13 @@ class CaffeParser(Parser):
         IR_node = self.IR_graph.node.add()
 
         # name, op
-        Keras2Parser._copy_and_reop(source_node, IR_node)
+        CaffeParser._copy_and_reop(source_node, IR_node)
 
         # input edge
-        Keras2Parser._convert_inedge(source_node, IR_node, self.keras_graph.layer_name_map)
+        CaffeParser._convert_inedge(source_node, IR_node, self.caffe_graph.layer_name_map)
 
-        IR_node.attr["keep_prob"].f = source_node.keras_layer.rate
-        if source_node.keras_layer.seed != None:
-            IR_node.attr["seed"].i = source_node.keras_layer.seed
+        IR_node.attr["keep_prob"].f = source_node.layer.dropout_param.dropout_ratio
   
-
 
     @classmethod
     def rename_Dense(self, source_node):
@@ -391,6 +377,17 @@ class CaffeParser(Parser):
 
         # input edge
         Keras2Parser._convert_inedge(keras_node, IR_node, self.keras_graph.layer_name_map)
+
+
+    @classmethod
+    def rename_ReLU(self, source_node):
+        IR_node = self.IR_graph.node.add()
+
+        # name, op
+        CaffeParser._copy_and_reop(source_node, IR_node, "Relu")
+
+        # input edge
+        CaffeParser._convert_inedge(source_node, IR_node, self.caffe_graph.layer_name_map)
 
 
 

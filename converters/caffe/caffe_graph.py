@@ -11,21 +11,16 @@ class CaffeGraphNode(GraphNode):
 
     def __init__(self, layer):
         GraphNode.__init__(self, layer)
-        self.withRelu = False
-        self.withDropout = False
    
-
 
     @property
     def name(self):
         return self.layer.name
 
 
-
     @property
     def type(self):
         return self.layer.type
-
 
 
     @property
@@ -60,7 +55,6 @@ class CaffeGraph(Graph):
         return True
   
 
-
     @classmethod
     def __init__(self, model, phase):
         super(CaffeGraph, self).__init__(model)
@@ -69,21 +63,25 @@ class CaffeGraph(Graph):
 
     @classmethod
     def build(self):
-        self.input_layers = list()
-
         todo_layer = list()
+        inplace_rename_map = dict()
         for i, layer in enumerate(self.model.layer):
             if CaffeGraph._match_phase(layer, self.phase) == True:
-                if self._same_name_handler(layer) == True:
-                    continue
-
                 self.layer_name_map[layer.name] = layer.name
                 self.layer_map[layer.name] = CaffeGraphNode(layer) 
                 todo_layer.append(layer)
+
+                inplace_rename_map[layer.name] = layer.name
+                for input_name in layer.bottom:
+                    inplace_rename_map[input_name] = input_name
+                for output_name in layer.top:
+                    inplace_rename_map[output_name] = output_name
  
+
         for i, layer in enumerate(todo_layer):    
             for input_name in layer.bottom:
-                self._make_connection(input_name, layer.name)
+                self._make_connection(inplace_rename_map[input_name], inplace_rename_map[layer.name])
+            self._inplace_handler(layer, inplace_rename_map)
             for output_name in layer.top:
                 if not output_name in self.layer_name_map:
                     new_layer = caffe_pb2.LayerParameter()
@@ -92,26 +90,19 @@ class CaffeGraph(Graph):
                     self.layer_map[output_name] = CaffeGraphNode(new_layer)
                     self.layer_name_map[output_name] = output_name 
 
-                self._make_connection(layer.name, output_name)
+                self._make_connection(inplace_rename_map[layer.name], inplace_rename_map[output_name])
 
         super(CaffeGraph, self).build()
 
 
 
     @classmethod
-    def _same_name_handler(self, layer):
+    def _inplace_handler(self, layer, rename_map):
         if len(layer.bottom) != 1:
             return
         if len(layer.top) != 1:
             return
         if layer.bottom[0] != layer.top[0]:
             return
-
-        if layer.type == "ReLU":
-            self.layer_map[layer.top[0]].withRelu = True
-        elif layer.type == "Dropout":
-            self.layer_map[layer.top[0]].withDropout = True
-        else:
-            print ("Error! Unknown type [%s] for same name handler." % layer.type)
-
-        return True
+        
+        rename_map[layer.top[0]] = layer.name
