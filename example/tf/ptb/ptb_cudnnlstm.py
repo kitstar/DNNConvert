@@ -348,7 +348,7 @@ class SmallConfig(object):
   learning_rate = 1
   max_grad_norm = 5
   num_layers = 2
-  num_steps = 30
+  num_steps = 20
   hidden_size = 200
   max_epoch = 4
   max_max_epoch = 20
