@@ -242,32 +242,30 @@ class PTBCudnnModel(object):
     if is_training == False and config.keep_prob < 1:
       dropout_rate = 1 - config.keep_prob
     else:
-      dropout_rate = 0.0  
+      dropout_rate = 0.0
+    dropout_rate = 0.0  
 
     with tf.device("/cpu:0"):
       embedding = tf.get_variable(
           "embedding", [vocab_size, size], dtype=data_type())
       inputs = tf.nn.embedding_lookup(embedding, input_.input_data)      
-      inputs = tf.transpose(inputs, perm = [1, 0, 2])
 
     from tensorflow.contrib.cudnn_rnn.python.ops import cudnn_rnn_ops
     from tensorflow.python.framework import constant_op
     from tensorflow.python.ops import random_ops
     
     model = cudnn_rnn_ops.CudnnLSTM(num_layers, size, size, dropout = dropout_rate)
-    params_size_t = model.params_size()
+    params_size_t = model.params_size()    
             
-    # init_state = tf.zeros([num_layers, batch_size, size], dtype = data_type(), name = "Kit_Init_State")
-    init_state = tf.zeros([num_layers, batch_size, size], dtype = data_type())
-
-    self._initial_state = (init_state, init_state)
+    init_state = tf.zeros([num_layers, batch_size, size], dtype = data_type(), name = "Kit_Init_State")
     
-    params = tf.Variable(
-      random_ops.random_uniform([params_size_t], -config.init_scale, config.init_scale), 
-      validate_shape=False,
-      dtype = data_type(),
-      name = 'Kit_Parameters')
+    params = tf.get_variable(
+      'Kit_Parameters',
+      initializer = tf.random_uniform([params_size_t], -config.init_scale, config.init_scale),
+      validate_shape = False
+    )
 
+    inputs = tf.transpose(inputs, perm = [1, 0, 2])
     output, output_h, output_c = model( 
       is_training = is_training, 
       input_data = inputs,
@@ -280,7 +278,7 @@ class PTBCudnnModel(object):
     softmax_w = tf.get_variable(
         "softmax_w", [size, vocab_size], dtype=data_type())
     softmax_b = tf.get_variable("softmax_b", [vocab_size], dtype=data_type())
-    logits = tf.matmul(output, softmax_w) + softmax_b
+    logits = tf.nn.xw_plus_b(output, softmax_w, softmax_b)
 
     # Reshape logits to be 3-D tensor for sequence loss
     logits = tf.reshape(logits, [batch_size, num_steps, vocab_size])
@@ -296,7 +294,7 @@ class PTBCudnnModel(object):
 
     # update the cost variables
     self._cost = cost = tf.reduce_sum(loss)
-    self._final_state = output_c
+    self._final_state = (tf.contrib.rnn.LSTMStateTuple(h=output_h, c=output_c))
 
     if not is_training:
       return
@@ -476,7 +474,7 @@ def main(_):
     with tf.name_scope("Valid"):
       valid_input = PTBInput(config=config, data=valid_data, name="ValidInput")
       with tf.variable_scope("Model", reuse=True, initializer=initializer):
-        mvalid = MY_LSTM(is_training=False, config=config, input_=valid_input)        
+        mvalid = MY_LSTM(is_training=False, config=config, input_=valid_input)
       tf.summary.scalar("Validation Loss", mvalid.cost)
 
     with tf.name_scope("Test"):
